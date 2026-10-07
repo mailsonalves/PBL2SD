@@ -127,10 +127,15 @@ set_global_assignment -name VERILOG_FILE instruction_memory.v
 set_global_assignment -name VERILOG_FILE active_fetch_controller.v
 set_global_assignment -name HEX_FILE programs/fetch_demo.hex
 set_global_assignment -name HEX_FILE programs/sprites_demo.hex
+set_global_assignment -name HEX_FILE programs/pbl1_validation.hex
 set_global_assignment -name VERILOG_FILE color_palette.v
 set_global_assignment -name VERILOG_FILE compositor.v
 set_global_assignment -name VERILOG_FILE polygon_buffer.v
 set_global_assignment -name VERILOG_FILE polygon_rasterizer.v
+set_global_assignment -name VERILOG_FILE raster_alu.v
+set_global_assignment -name SDC_FILE gpu.sdc
+set_global_assignment -name HEX_FILE tiles.hex
+set_global_assignment -name HEX_FILE palette.hex
 set_global_assignment -name VERILOG_FILE bg_engine.v
 set_global_assignment -name VERILOG_FILE tilemap_ram.v
 set_global_assignment -name VERILOG_FILE pattern_vram.v

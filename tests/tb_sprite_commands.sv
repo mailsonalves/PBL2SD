@@ -21,6 +21,11 @@ module tb_sprite_commands;
     reg [8:0] pixel_x = 0;
     reg [7:0] pixel_y = 0;
     wire [13:0] sp_vram_addr;
+    wire sprite_busy;
+    wire sprite_meta_we, sprite_palette_enable;
+    wire [4:0] sprite_meta_addr;
+    wire [1:0] sprite_priority;
+    wire [3:0] sprite_palette_bank;
 
     cmd_decoder decoder (
         .clk(clock), .rst_n(rst_n), .cmd_data(cmd_data),
@@ -34,13 +39,22 @@ module tb_sprite_commands;
         .rast_x1(rast_x1), .rast_y1(rast_y1),
         .rast_x2(rast_x2), .rast_y2(rast_y2), .rast_color(rast_color),
         .rast_clear_screen(rast_clear_screen), .rast_start(rast_start),
-        .rast_busy(rast_busy)
+        .rast_busy(rast_busy), .sprite_busy(sprite_busy),
+        .buffer_busy(1'b0), .buffer_double_buffered(1'b0),
+        .sprite_meta_we(sprite_meta_we), .sprite_meta_addr(sprite_meta_addr),
+        .sprite_priority(sprite_priority),
+        .sprite_palette_enable(sprite_palette_enable),
+        .sprite_palette_bank(sprite_palette_bank)
     );
 
     sprite_engine sprites (
         .clk(clock), .rst_n(rst_n), .pixel_x(pixel_x), .pixel_y(pixel_y),
         .sat_we(sat_we), .sat_addr(sat_addr), .sat_data(sat_data),
-        .sat_write_mask(sat_write_mask), .sp_vram_addr(sp_vram_addr)
+        .sat_write_mask(sat_write_mask), .sp_vram_addr(sp_vram_addr),
+        .meta_we(sprite_meta_we), .meta_addr(sprite_meta_addr),
+        .meta_priority(sprite_priority),
+        .meta_palette_enable(sprite_palette_enable),
+        .meta_palette_bank(sprite_palette_bank), .busy(sprite_busy), .sp_pixel()
     );
 
     reg [31:0] expected_sat [0:31];
@@ -132,14 +146,16 @@ module tb_sprite_commands;
         input [31:0] word, input bit valid, busy, accepted
     );
         begin
+            wait (cmd_ready);
             @(negedge clock);
             cmd_data = word;
             cmd_valid = valid;
             rast_busy = busy;
-            @(posedge clock);
             #1;
             if (cmd_ready !== !busy)
-                $fatal(1, "cmd_ready nao respeita rast_busy");
+                $fatal(1, "cmd_ready nao respeita rast_busy antes da aceitacao");
+            @(posedge clock);
+            #1;
             check_decode(word, accepted);
             @(negedge clock);
             cmd_valid = 0;
@@ -149,6 +165,36 @@ module tb_sprite_commands;
             check_sat;
             if (sat_we)
                 $fatal(1, "Pulso de escrita repetido sem cmd_valid");
+            wait (!sprite_busy && cmd_ready);
+        end
+    endtask
+
+    // O segundo comando e apresentado imediatamente, mas permanece estavel
+    // ate ready. A etapa 3 precisa carregar o cache quando a imagem muda.
+    task automatic issue_pair(input [31:0] first, second);
+        begin
+            wait (cmd_ready);
+            @(negedge clock);
+            cmd_data = first;
+            cmd_valid = 1;
+            @(posedge clock); #1;
+            check_decode(first, 1);
+            @(negedge clock);
+            cmd_data = second;
+            while (!cmd_ready) begin
+                @(posedge clock); #1;
+                check_sat;
+                if (sat_we) $fatal(1, "Comando repetido enquanto ready estava baixo");
+                @(negedge clock);
+            end
+            @(posedge clock); #1;
+            check_decode(second, 1);
+            @(negedge clock);
+            cmd_valid = 0;
+            @(posedge clock); #1;
+            check_sat;
+            if (sat_we) $fatal(1, "Comandos consecutivos produziram escrita extra");
+            wait (!sprite_busy && cmd_ready);
         end
     endtask
 
@@ -205,6 +251,7 @@ module tb_sprite_commands;
             #1;
             check_sat;
             if (sat_we) $fatal(1, "Reset manteve escrita pendente");
+            wait (!sprite_busy && cmd_ready);
         end
     endtask
 
@@ -258,42 +305,16 @@ module tb_sprite_commands;
         set_attr(31, 85, 1, 1, 1);
         sample(17, 33, sprite_address(85, 0, 0, 1, 1));
 
-        // Sem bolha entre comandos: a SAT recebe posicao e atributos em ciclos sucessivos.
+        // Valid continuo: o segundo comando espera o ready sem ser perdido.
         first_word = pos_command(31, 103, 87);
         second_word = attr_command(31, 41, 1, 0, 1);
-        @(negedge clock);
-        cmd_data = first_word; cmd_valid = 1;
-        @(posedge clock); #1;
-        check_decode(first_word, 1);
-        @(negedge clock);
-        cmd_data = second_word;
-        @(posedge clock); #1;
-        check_sat;
-        check_decode(second_word, 1);
-        @(negedge clock);
-        cmd_valid = 0;
-        @(posedge clock); #1;
-        check_sat;
-        if (sat_we) $fatal(1, "Comandos adjacentes produziram escrita extra");
+        issue_pair(first_word, second_word);
         check_complete_sprite(103, 87, 41, 0, 1);
 
-        // Ordem inversa sem bolha: os atributos novos sobrevivem a nova posicao.
+        // Ordem inversa: os atributos novos sobrevivem a nova posicao.
         first_word = attr_command(31, 92, 1, 1, 0);
         second_word = pos_command(31, 61, 73);
-        @(negedge clock);
-        cmd_data = first_word; cmd_valid = 1;
-        @(posedge clock); #1;
-        check_decode(first_word, 1);
-        @(negedge clock);
-        cmd_data = second_word;
-        @(posedge clock); #1;
-        check_sat;
-        check_decode(second_word, 1);
-        @(negedge clock);
-        cmd_valid = 0;
-        @(posedge clock); #1;
-        check_sat;
-        if (sat_we) $fatal(1, "Ordem inversa produziu escrita extra");
+        issue_pair(first_word, second_word);
         check_complete_sprite(61, 73, 92, 1, 0);
 
         // Comandos nao aceitos devem manter todos os registros intactos.
@@ -338,7 +359,7 @@ module tb_sprite_commands;
     end
 
     initial begin
-        #1000000;
+        #3000000;
         $fatal(1, "Timeout no teste dos comandos genericos de sprite");
     end
 endmodule

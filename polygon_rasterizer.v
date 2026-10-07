@@ -25,15 +25,22 @@ module polygon_rasterizer (
     reg [8:0] min_x, max_x, min_y, max_y;
     reg [8:0] curr_x, curr_y;
     reg signed [10:0] vx0, vy0, vx1, vy1, vx2, vy2;
+    reg [7:0] latched_color;
 
     wire signed [10:0] px = {2'b00, curr_x};
     wire signed [10:0] py = {2'b00, curr_y};
 
-    wire signed [21:0] e01 = (px - vx0) * (vy1 - vy0) - (py - vy0) * (vx1 - vx0);
-    wire signed [21:0] e12 = (px - vx1) * (vy2 - vy1) - (py - vy1) * (vx2 - vx1);
-    wire signed [21:0] e20 = (px - vx2) * (vy0 - vy2) - (py - vy2) * (vx0 - vx2);
-
-    wire is_inside = ((e01 >= 0 && e12 >= 0 && e20 >= 0) || (e01 <= 0 && e12 <= 0 && e20 <= 0));
+    wire signed [21:0] e01, e12, e20, triangle_area;
+    wire is_inside;
+    raster_alu datapath (
+        .px(px), .py(py), .vx0(vx0), .vy0(vy0),
+        .vx1(vx1), .vy1(vy1), .vx2(vx2), .vy2(vy2),
+        .e01(e01), .e12(e12), .e20(e20),
+        .triangle_area(triangle_area), .is_inside(is_inside)
+    );
+    // 320 = 256 + 64. Alargamento antes dos deslocamentos evita truncamento.
+    wire [16:0] current_address =
+        ({8'd0, curr_y} << 8) + ({8'd0, curr_y} << 6) + {8'd0, curr_x};
 
     function [8:0] min3(input [8:0] a, b, c);
         min3 = (a < b) ? ((a < c) ? a : c) : ((b < c) ? b : c);
@@ -52,6 +59,17 @@ module polygon_rasterizer (
             buf_data <= 8'd0;
             curr_x   <= 9'd0;
             curr_y   <= 9'd0;
+            min_x    <= 9'd0;
+            max_x    <= 9'd0;
+            min_y    <= 9'd0;
+            max_y    <= 9'd0;
+            vx0      <= 11'sd0;
+            vy0      <= 11'sd0;
+            vx1      <= 11'sd0;
+            vy1      <= 11'sd0;
+            vx2      <= 11'sd0;
+            vy2      <= 11'sd0;
+            latched_color <= 8'd0;
         end else begin
             buf_we <= 1'b0;
 
@@ -59,6 +77,7 @@ module polygon_rasterizer (
                 IDLE: begin
                     if (start) begin
                         busy <= 1'b1;
+                        latched_color <= color;
                         if (clear_screen) begin
                             curr_x <= 9'd0;
                             curr_y <= 9'd0;
@@ -82,14 +101,19 @@ module polygon_rasterizer (
                 SETUP: begin
                     curr_x <= min_x;
                     curr_y <= min_y;
-                    state  <= RAST_TRI;
+                    if (triangle_area == 0) begin
+                        state <= IDLE;
+                        busy <= 1'b0;
+                    end else begin
+                        state <= RAST_TRI;
+                    end
                 end
 
                 RAST_TRI: begin
                     if (is_inside && curr_x < 320 && curr_y < 240) begin
                         buf_we   <= 1'b1;
-                        buf_addr <= curr_y * 17'd320 + curr_x;
-                        buf_data <= color;
+                        buf_addr <= current_address;
+                        buf_data <= latched_color;
                     end
 
                     if (curr_x >= max_x) begin
@@ -107,7 +131,7 @@ module polygon_rasterizer (
 
                 RAST_CLEAR: begin
                     buf_we   <= 1'b1;
-                    buf_addr <= curr_y * 17'd320 + curr_x;
+                    buf_addr <= current_address;
                     buf_data <= 8'h00;
 
                     if (curr_x == 9'd319) begin

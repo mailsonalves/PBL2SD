@@ -62,21 +62,29 @@ module board_input_controller (
     // =========================================================================
     // 3. Fisica do Passaro e Rolagem
     // =========================================================================
-    reg signed [11:0] bird_y_sub;   
+    // 190 * 16 = 3040 exige 13 bits quando a posicao e signed.
+    reg signed [12:0] bird_y_sub;
     reg signed [7:0]  velocity_y;   
     reg [8:0]         bg_scroll_x;  
     reg [7:0]         shape_timer;  // Temporizador compartilhado para as formas
 
-    localparam GRAVITY   = 8'sd3;    
-    localparam JUMP_IMP  = -8'sd60;  
-    localparam MAX_FALL  = 8'sd96;   
-    localparam GROUND_Y  = 8'd190;   
+    localparam signed [7:0] GRAVITY  = 8'sd3;
+    localparam signed [7:0] JUMP_IMP = -8'sd60;
+    localparam signed [7:0] MAX_FALL = 8'sd96;
+    localparam signed [13:0] GROUND_SUB = 14'sd3040;
 
     wire [7:0] current_bird_y = bird_y_sub[11:4];
+    wire signed [7:0] next_velocity = jump_request ? JUMP_IMP :
+        ((velocity_y < MAX_FALL) ? velocity_y + GRAVITY : velocity_y);
+    // Calcula antes de truncar e limita a proxima posicao, evitando que um
+    // impulso atravesse o teto ou uma queda ultrapasse o chao por um quadro.
+    wire signed [13:0] moved_bird_y_sub =
+        $signed({bird_y_sub[12], bird_y_sub}) +
+        $signed({{6{velocity_y[7]}}, velocity_y});
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            bird_y_sub  <= {8'd100, 4'd0};
+            bird_y_sub  <= 13'sd1600;
             velocity_y  <= 8'd0;
             bg_scroll_x <= 9'd0;
             shape_timer <= 8'd0;
@@ -87,18 +95,18 @@ module board_input_controller (
             else bg_scroll_x <= bg_scroll_x + 9'd1;
 
             // Fisica do Pulo
-            if (jump_request) velocity_y <= JUMP_IMP;
-            else if (velocity_y < MAX_FALL) velocity_y <= velocity_y + GRAVITY;
+            velocity_y <= next_velocity;
 
             // Limites (Chao e Teto)
-            if (current_bird_y >= GROUND_Y && velocity_y > 0) begin
-                bird_y_sub <= {GROUND_Y, 4'd0};
-                velocity_y <= 8'd0;
-            end else if (bird_y_sub <= 12'd0 && velocity_y < 0) begin
-                bird_y_sub <= 12'd0;
-                velocity_y <= 8'd0;
+            if (moved_bird_y_sub >= GROUND_SUB) begin
+                bird_y_sub <= 13'sd3040;
+                // Um novo pulo no chao continua valido.
+                if (next_velocity > 8'sd0) velocity_y <= 8'sd0;
+            end else if (moved_bird_y_sub <= 14'sd0) begin
+                bird_y_sub <= 13'sd0;
+                if (next_velocity < 8'sd0) velocity_y <= 8'sd0;
             end else begin
-                bird_y_sub <= bird_y_sub + {{4{velocity_y[7]}}, velocity_y};
+                bird_y_sub <= moved_bird_y_sub[12:0];
             end
 
             // Temporizador para limpar os polígonos
@@ -126,24 +134,49 @@ module board_input_controller (
     localparam S_SEND_R5  = 4'd10;
     localparam S_SEND_R6  = 4'd11;
     localparam S_SEND_CLR = 4'd12;
+    localparam S_CAPTURE_FRAME = 4'd13;
 
     reg [3:0] state;
+    reg [8:0] frame_scroll_x;
+    reg [7:0] frame_bird_y;
     
     reg draw_tri_pending;
     reg draw_rect_pending;
     reg clear_pending;
 
+    // O comando pertence ao estado atual. Avancar somente na aceitacao
+    // garante que valid e data permanecam estaveis enquanto ready estiver baixo.
+    // A captura separada usa a fisica atualizada pelo tick, mas nao deixa um
+    // novo tick mudar scroll/posicao de um comando que ainda esta esperando.
+    always @* begin
+        cmd_valid = 1'b1;
+        cmd_data = 32'd0;
+        case (state)
+            S_SEND_SCR: cmd_data = {4'h5, 11'd0, frame_scroll_x, 8'd0};
+            S_SEND_SPR: cmd_data = {4'h6, 20'd0, frame_bird_y};
+            S_SEND_P1:  cmd_data = {4'h7, 8'h00, 3'b000, 9'd160, 8'd50};
+            S_SEND_P2:  cmd_data = {4'h8, 8'h00, 3'b000, 9'd80, 8'd190};
+            S_SEND_P3:  cmd_data = {4'h9, 8'hFF, 3'b000, 9'd240, 8'd190};
+            S_SEND_R1:  cmd_data = {4'h7, 8'h00, 3'b000, 9'd100, 8'd100};
+            S_SEND_R2:  cmd_data = {4'h8, 8'h00, 3'b000, 9'd100, 8'd150};
+            S_SEND_R3:  cmd_data = {4'h9, 8'h04, 3'b000, 9'd220, 8'd100};
+            S_SEND_R4:  cmd_data = {4'h7, 8'h00, 3'b000, 9'd220, 8'd100};
+            S_SEND_R5:  cmd_data = {4'h8, 8'h00, 3'b000, 9'd100, 8'd150};
+            S_SEND_R6:  cmd_data = {4'h9, 8'h04, 3'b000, 9'd220, 8'd150};
+            S_SEND_CLR: cmd_data = {4'h0, 4'hF, 24'd0};
+            default: cmd_valid = 1'b0;
+        endcase
+    end
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state             <= S_IDLE;
-            cmd_data          <= 32'd0;
-            cmd_valid         <= 1'b0;
+            frame_scroll_x    <= 9'd0;
+            frame_bird_y      <= 8'd100;
             draw_tri_pending  <= 1'b0;
             draw_rect_pending <= 1'b0;
             clear_pending     <= 1'b0;
         end else begin
-            cmd_valid <= 1'b0;
-
             if (tri_pressed) draw_tri_pending <= 1'b1;
             if (rect_pressed) draw_rect_pending <= 1'b1;
             if (shape_timer == 8'd1 && frame_tick) clear_pending <= 1'b1;
@@ -151,7 +184,7 @@ module board_input_controller (
             case (state)
                 S_IDLE: begin
                     if (frame_tick) 
-                        state <= S_SEND_SCR;
+                        state <= S_CAPTURE_FRAME;
                     else if (draw_tri_pending) 
                         state <= S_SEND_P1;
                     else if (draw_rect_pending) 
@@ -159,19 +192,21 @@ module board_input_controller (
                     else if (clear_pending) 
                         state <= S_SEND_CLR;
                 end
+
+                S_CAPTURE_FRAME: begin
+                    frame_scroll_x <= bg_scroll_x;
+                    frame_bird_y <= current_bird_y;
+                    state <= S_SEND_SCR;
+                end
                 
                 S_SEND_SCR: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h5, 11'd0, bg_scroll_x, 8'd0};
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_SPR;
                     end
                 end
                 
                 S_SEND_SPR: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h6, 20'd0, current_bird_y};
-                        cmd_valid <= 1'b1;
                         state     <= S_IDLE;
                     end
                 end
@@ -179,23 +214,17 @@ module board_input_controller (
                 // --- Estados: Desenhando o Triangulo (KEY[2]) ---
                 S_SEND_P1: begin
                     if (cmd_ready) begin
-                        draw_tri_pending <= 1'b0; 
-                        cmd_data  <= {4'h7, 8'h00, 3'b000, 9'd160, 8'd50}; // V0 Topo
-                        cmd_valid <= 1'b1;
+                        draw_tri_pending <= tri_pressed;
                         state     <= S_SEND_P2;
                     end
                 end
                 S_SEND_P2: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h8, 8'h00, 3'b000, 9'd80, 8'd190}; // V1 Esq
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_P3;
                     end
                 end
                 S_SEND_P3: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h9, 8'hFF, 3'b000, 9'd240, 8'd190}; // V2 Dir, Cor 0xFF
-                        cmd_valid <= 1'b1;
                         state     <= S_IDLE;
                     end
                 end
@@ -204,45 +233,33 @@ module board_input_controller (
                 // Triangulo Metade Esquerda
                 S_SEND_R1: begin
                     if (cmd_ready) begin
-                        draw_rect_pending <= 1'b0;
-                        cmd_data  <= {4'h7, 8'h00, 3'b000, 9'd100, 8'd100}; // Topo-Esq
-                        cmd_valid <= 1'b1;
+                        draw_rect_pending <= rect_pressed;
                         state     <= S_SEND_R2;
                     end
                 end
                 S_SEND_R2: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h8, 8'h00, 3'b000, 9'd100, 8'd150}; // Base-Esq
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_R3;
                     end
                 end
                 S_SEND_R3: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h9, 8'h04, 3'b000, 9'd220, 8'd100};
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_R4;
                     end
                 end
                 // Triangulo Metade Direita
                 S_SEND_R4: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h7, 8'h00, 3'b000, 9'd220, 8'd100}; // Topo-Dir
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_R5;
                     end
                 end
                 S_SEND_R5: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h8, 8'h00, 3'b000, 9'd100, 8'd150}; // Base-Esq
-                        cmd_valid <= 1'b1;
                         state     <= S_SEND_R6;
                     end
                 end
                 S_SEND_R6: begin
                     if (cmd_ready) begin
-                        cmd_data  <= {4'h9, 8'h04, 3'b000, 9'd220, 8'd150}; 
-                        cmd_valid <= 1'b1;
                         state     <= S_IDLE;
                     end
                 end
@@ -251,8 +268,6 @@ module board_input_controller (
                 S_SEND_CLR: begin
                     if (cmd_ready) begin
                         clear_pending <= 1'b0;
-                        cmd_data  <= {4'h0, 4'hF, 24'd0}; 
-                        cmd_valid <= 1'b1;
                         state     <= S_IDLE;
                     end
                 end

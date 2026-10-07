@@ -1,11 +1,12 @@
 module vga_sync (
-    input  wire        clk_25m,      // Clock de pixel (25.175 MHz)
+    input  wire        clk_25m,      // 25 MHz: 59,52 Hz com 800x525 clocks
     input  wire        rst_n,
-    output reg         hsync,
-    output reg         vsync,
+    output wire        hsync,
+    output wire        vsync,
     output wire        video_active,
     output wire [8:0]  pixel_x,      // 0 a 319 (Resolução Lógica)
-    output wire [7:0]  pixel_y       // 0 a 239 (Resolução Lógica)
+    output wire [7:0]  pixel_y,      // 0 a 239 (Resolução Lógica)
+    output wire        vblank
 );
 
     localparam H_ACTIVE = 640, H_FP = 16, H_SYNC = 96, H_BP = 48, H_TOTAL = 800;
@@ -31,15 +32,11 @@ module vga_sync (
         end
     end
 
-    always @(posedge clk_25m or negedge rst_n) begin
-        if (!rst_n) begin
-            hsync <= 1'b1;
-            vsync <= 1'b1;
-        end else begin
-            hsync <= ~((h_cnt >= (H_ACTIVE + H_FP)) && (h_cnt < (H_ACTIVE + H_FP + H_SYNC)));
-            vsync <= ~((v_cnt >= (V_ACTIVE + V_FP)) && (v_cnt < (V_ACTIVE + V_FP + V_SYNC)));
-        end
-    end
+    // Sincronismo e coordenadas descrevem o mesmo pixel; o top atrasa ambos
+    // pela latencia das memorias e da paleta.
+    assign hsync = !rst_n || !((h_cnt >= H_ACTIVE + H_FP) && (h_cnt < H_ACTIVE + H_FP + H_SYNC));
+    assign vsync = !rst_n || !((v_cnt >= V_ACTIVE + V_FP) && (v_cnt < V_ACTIVE + V_FP + V_SYNC));
+    assign vblank = (v_cnt >= V_ACTIVE);
 
     assign video_active = (h_cnt < H_ACTIVE) && (v_cnt < V_ACTIVE);
     assign pixel_x      = video_active ? h_cnt[9:1] : 9'd0;

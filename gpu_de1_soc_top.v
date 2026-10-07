@@ -20,7 +20,13 @@ module gpu_de1_soc_top #(
     output wire        VGA_CLK
 );
 
-    wire rst_n = KEY[0];
+    // Assert assincrono; liberacao do reset sincronizada no clock do sistema.
+    reg [1:0] reset_sync;
+    always @(posedge CLOCK_50 or negedge KEY[0]) begin
+        if (!KEY[0]) reset_sync <= 2'b00;
+        else reset_sync <= {reset_sync[0], 1'b1};
+    end
+    wire rst_n = reset_sync[1];
 
     // 1. Clock Pixel 25 MHz
     reg clk_25m;
@@ -34,26 +40,36 @@ module gpu_de1_soc_top #(
 
     // 2. Gerador VGA
     wire video_active;
+    wire raw_hsync, raw_vsync, vblank;
     wire [8:0] pixel_x;
     wire [7:0] pixel_y;
 
     vga_sync u_vga_sync (
         .clk_25m     (clk_25m),
         .rst_n       (rst_n),
-        .hsync       (VGA_HS),
-        .vsync       (VGA_VS),
+        .hsync       (raw_hsync),
+        .vsync       (raw_vsync),
         .video_active(video_active),
         .pixel_x     (pixel_x),
-        .pixel_y     (pixel_y)
+        .pixel_y     (pixel_y),
+        .vblank      (vblank)
     );
 
-    assign VGA_BLANK_N = video_active;
+    reg previous_vblank;
+    always @(posedge CLOCK_50 or negedge rst_n) begin
+        if (!rst_n) previous_vblank <= 1'b0;
+        else previous_vblank <= vblank;
+    end
+    wire frame_boundary = vblank && !previous_vblank;
 
     // 3. Fonte de comandos selecionada na compilacao
     wire [31:0] cmd_data;
     wire        cmd_valid;
     wire        cmd_ready;
     wire        rast_busy;
+    wire        sprite_busy, buffer_busy;
+    wire        buffer_initialized, buffer_front, buffer_double_buffered, buffer_swap_done;
+    wire        execution_busy = rast_busy || sprite_busy || buffer_busy;
     wire        program_halted;
 
     generate
@@ -65,7 +81,7 @@ module gpu_de1_soc_top #(
                 .clk(CLOCK_50),
                 .rst_n(rst_n),
                 .cmd_ready(cmd_ready),
-                .execution_busy(rast_busy),
+                .execution_busy(execution_busy),
                 .cmd_data(cmd_data),
                 .cmd_valid(cmd_valid),
                 .halted(program_halted),
@@ -100,6 +116,12 @@ module gpu_de1_soc_top #(
     wire [4:0]  sat_addr;
     wire [31:0] sat_data;
     wire [31:0] sat_write_mask;
+    wire        sprite_meta_we;
+    wire [4:0]  sprite_meta_addr;
+    wire [1:0]  sprite_priority;
+    wire        sprite_palette_enable;
+    wire [3:0]  sprite_palette_bank;
+    wire        buffer_config_valid, buffer_double_enable, buffer_swap_request, cmd_error;
     wire [8:0]  rast_x0, rast_x1, rast_x2;
     wire [7:0]  rast_y0, rast_y1, rast_y2;
     wire [7:0]  rast_color;
@@ -131,7 +153,19 @@ module gpu_de1_soc_top #(
         .rast_color       (rast_color),
         .rast_clear_screen(rast_clear_screen),
         .rast_start       (rast_start),
-        .rast_busy        (rast_busy)
+        .rast_busy        (rast_busy),
+        .sprite_busy      (sprite_busy),
+        .buffer_busy      (buffer_busy),
+        .buffer_double_buffered(buffer_double_buffered),
+        .sprite_meta_we   (sprite_meta_we),
+        .sprite_meta_addr (sprite_meta_addr),
+        .sprite_priority  (sprite_priority),
+        .sprite_palette_enable(sprite_palette_enable),
+        .sprite_palette_bank(sprite_palette_bank),
+        .buffer_config_valid(buffer_config_valid),
+        .buffer_double_enable(buffer_double_enable),
+        .buffer_swap_request(buffer_swap_request),
+        .cmd_error        (cmd_error)
     );
 
     // 5. Motor de Background
@@ -152,6 +186,7 @@ module gpu_de1_soc_top #(
 
     // 5.1 Motor de Sprites
     wire [13:0] sp_vram_addr;
+    wire [7:0] sp_pixel;
 
     sprite_engine u_sprite_engine (
         .clk               (CLOCK_50),
@@ -162,12 +197,19 @@ module gpu_de1_soc_top #(
         .sat_addr          (sat_addr),
         .sat_data          (sat_data),
         .sat_write_mask    (sat_write_mask),
-        .sp_vram_addr      (sp_vram_addr)
+        .sp_vram_addr      (sp_vram_addr),
+        .sp_pixel          (sp_pixel),
+        .busy              (sprite_busy),
+        .meta_we           (sprite_meta_we),
+        .meta_addr         (sprite_meta_addr),
+        .meta_priority     (sprite_priority),
+        .meta_palette_enable(sprite_palette_enable),
+        .meta_palette_bank (sprite_palette_bank)
     );
 
     // 5.2 VRAM Dual-Port
     wire [7:0] bg_pixel;
-    wire [7:0] sp_pixel;
+    wire [7:0] pattern_debug_pixel;
 
     pattern_vram u_patterns (
         .clk        (CLOCK_50),
@@ -176,7 +218,7 @@ module gpu_de1_soc_top #(
         .data_in_a  (8'd0),
         .data_out_a (bg_pixel),
         .addr_b     (sp_vram_addr),
-        .data_out_b (sp_pixel)
+        .data_out_b (pattern_debug_pixel)
     );
 
     // 6. Rasterizador e Framebuffer
@@ -191,9 +233,9 @@ module gpu_de1_soc_top #(
         .start       (rast_start),
         .clear_screen(rast_clear_screen),
         .busy        (rast_busy),
-        .x0          (rast_x0), .y0(rast_y0),
-        .x1          (rast_x1), .y1(rast_y1),
-        .x2          (rast_x2), .y2(rast_y2),
+        .x0          (rast_x0), .y0({1'b0, rast_y0}),
+        .x1          (rast_x1), .y1({1'b0, rast_y1}),
+        .x2          (rast_x2), .y2({1'b0, rast_y2}),
         .color       (rast_color),
         .buf_we      (buf_we),
         .buf_addr    (buf_wr_addr),
@@ -204,21 +246,55 @@ module gpu_de1_soc_top #(
 
     polygon_buffer u_poly_buffer (
         .clk_wr  (CLOCK_50),
+        .rst_n   (rst_n),
         .we      (buf_we),
         .addr_wr (buf_wr_addr),
         .data_in (buf_wr_data),
-        .clk_rd  (clk_25m),
+        .clk_rd  (CLOCK_50),
         .addr_rd (buf_rd_addr),
-        .data_out(poly_pixel)
+        .data_out(poly_pixel),
+        .config_valid(buffer_config_valid),
+        .double_buffer_enable(buffer_double_enable),
+        .swap_request(buffer_swap_request),
+        .frame_boundary(frame_boundary),
+        .initialized(buffer_initialized),
+        .busy(buffer_busy),
+        .front_buffer(buffer_front),
+        .double_buffered(buffer_double_buffered),
+        .swap_done(buffer_swap_done)
     );
 
     // 7. Compositor
     wire [7:0] final_pixel_idx;
+    // Background: tilemap + pattern = 2 ciclos. Sprites e poligonos: RAM +
+    // este registro = 2 ciclos. Paleta acrescenta o terceiro ciclo.
+    reg [7:0] sp_pixel_aligned, poly_pixel_aligned;
+    reg [2:0] active_pipe, hsync_pipe, vsync_pipe, initialized_pipe;
+    reg error_seen;
+    always @(posedge CLOCK_50 or negedge rst_n) begin
+        if (!rst_n) begin
+            sp_pixel_aligned <= 0;
+            poly_pixel_aligned <= 0;
+            active_pipe <= 0;
+            hsync_pipe <= 3'b111;
+            vsync_pipe <= 3'b111;
+            initialized_pipe <= 0;
+            error_seen <= 0;
+        end else begin
+            sp_pixel_aligned <= sp_pixel;
+            poly_pixel_aligned <= poly_pixel;
+            active_pipe <= {active_pipe[1:0], video_active};
+            hsync_pipe <= {hsync_pipe[1:0], raw_hsync};
+            vsync_pipe <= {vsync_pipe[1:0], raw_vsync};
+            initialized_pipe <= {initialized_pipe[1:0], buffer_initialized};
+            if (cmd_error) error_seen <= 1'b1;
+        end
+    end
 
     compositor u_compositor (
         .bg_pixel          (bg_pixel),
-        .sp_pixel          (sp_pixel),
-        .poly_pixel        (poly_pixel),
+        .sp_pixel          (sp_pixel_aligned),
+        .poly_pixel        (poly_pixel_aligned),
         .final_pixel_index (final_pixel_idx)
     );
 
@@ -234,15 +310,23 @@ module gpu_de1_soc_top #(
         .rgb_out(rgb_24)
     );
 
-    assign VGA_R = video_active ? rgb_24[23:16] : 8'd0;
-    assign VGA_G = video_active ? rgb_24[15:8]  : 8'd0;
-    assign VGA_B = video_active ? rgb_24[7:0]   : 8'd0;
+    wire output_active = active_pipe[2] && initialized_pipe[2];
+    assign VGA_BLANK_N = active_pipe[2];
+    assign VGA_HS = hsync_pipe[2];
+    assign VGA_VS = vsync_pipe[2];
+    assign VGA_R = output_active ? rgb_24[23:16] : 8'd0;
+    assign VGA_G = output_active ? rgb_24[15:8]  : 8'd0;
+    assign VGA_B = output_active ? rgb_24[7:0]   : 8'd0;
 
-    assign LEDR[0] = rast_busy;
+    assign LEDR[0] = execution_busy;
     assign LEDR[1] = cmd_valid;
     assign LEDR[2] = SW[0];
     assign LEDR[3] = program_halted;
-    assign LEDR[8:4] = 5'd0;
+    assign LEDR[4] = error_seen;
+    assign LEDR[5] = buffer_initialized;
+    assign LEDR[6] = buffer_front;
+    assign LEDR[7] = buffer_double_buffered;
+    assign LEDR[8] = sprite_busy;
     assign LEDR[9] = rst_n;
 
 endmodule

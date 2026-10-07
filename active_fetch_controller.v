@@ -36,7 +36,9 @@ module active_fetch_controller #(
     );
 
     assign cmd_data = ir;
-    assign cmd_valid = rst_n && (state == ISSUE) && (ir[31:28] != 4'hF);
+    // Apenas a palavra canonica e HALT. Opcode F com payload reservado deve
+    // seguir ao decoder, que o rejeita sem interromper a busca ativa.
+    assign cmd_valid = rst_n && (state == ISSUE) && (ir != 32'hF0000000);
     assign halted = (state == HALTED);
 
     always @(posedge clk or negedge rst_n) begin
@@ -54,7 +56,7 @@ module active_fetch_controller #(
                     state <= ISSUE;
                 end
                 ISSUE: begin
-                    if (ir[31:28] == 4'hF)
+                    if (ir == 32'hF0000000)
                         state <= HALTED;
                     else if (cmd_ready)
                         state <= SETTLE;

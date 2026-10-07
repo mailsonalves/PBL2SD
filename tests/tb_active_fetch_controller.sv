@@ -2,6 +2,7 @@
 
 module tb_active_fetch_controller;
     localparam integer ADDRESS_WIDTH = 8;
+    localparam integer COMMAND_COUNT = 10;
 
     reg clk = 1'b0;
     reg rst_n = 1'b0;
@@ -18,8 +19,8 @@ module tb_active_fetch_controller;
 
     active_fetch_controller #(
         .ADDRESS_WIDTH(ADDRESS_WIDTH),
-        .PROGRAM_WORDS(9),
-        .PROGRAM_FILE("programs/fetch_demo.hex")
+        .PROGRAM_WORDS(COMMAND_COUNT + 1),
+        .PROGRAM_FILE("tests/fixtures/fetch_halt_validation.hex")
     ) dut (
         .clk(clk),
         .rst_n(rst_n),
@@ -44,6 +45,10 @@ module tb_active_fetch_controller;
             5: expected_word = 32'h70000a0a;
             6: expected_word = 32'h8000140a;
             7: expected_word = 32'h9ff00a14;
+            // Opcode F malformado precisa chegar ao decoder como comando
+            // invalido, preservando PC/IR e a espera pelo handshake.
+            8: expected_word = 32'hf0000001;
+            9: expected_word = 32'hffffffff;
             default: expected_word = 32'hf0000000;
         endcase
     endfunction
@@ -53,7 +58,7 @@ module tb_active_fetch_controller;
         if (!rst_n) begin
             accepted_count = 0;
         end else if (cmd_valid && cmd_ready) begin
-            if (accepted_count >= 8)
+            if (accepted_count >= COMMAND_COUNT)
                 $fatal(1, "Unexpected extra command or HALT sent to the decoder: %08h", cmd_data);
             if (cmd_data !== expected_word(accepted_count))
                 $fatal(1, "Command %0d: expected %08h, received %08h",
@@ -177,26 +182,28 @@ module tb_active_fetch_controller;
             @(negedge clk);
             rst_n = 1'b1;
 
-            for (command_index = 0; command_index < 8; command_index = command_index + 1)
+            for (command_index = 0; command_index < COMMAND_COUNT; command_index = command_index + 1)
                 exercise_command(command_index);
 
             while (!halted)
                 @(negedge clk);
-            if (pc !== 8'd8 || ir !== 32'hf0000000 || accepted_count != 8 || cmd_valid)
+            if (pc !== ADDRESS_WIDTH'(COMMAND_COUNT) || ir !== 32'hf0000000 ||
+                accepted_count != COMMAND_COUNT || cmd_valid)
                 $fatal(1, "HALT state or final accepted-command count is incorrect");
 
             cmd_ready = 1'b1;
             repeat (4) begin
                 @(posedge clk);
                 #1;
-                if (!halted || cmd_valid || pc !== 8'd8 || ir !== 32'hf0000000 || accepted_count != 8)
+                if (!halted || cmd_valid || pc !== ADDRESS_WIDTH'(COMMAND_COUNT) ||
+                    ir !== 32'hf0000000 || accepted_count != COMMAND_COUNT)
                     $fatal(1, "HALT did not remain stable");
                 @(negedge clk);
                 execution_busy = ~execution_busy;
             end
         end
 
-        $display("PASS tb_active_fetch_controller: command order, ready/busy stalls, delayed busy, HALT, reset during busy and restart");
+        $display("PASS tb_active_fetch_controller: command order, ready/busy stalls, delayed busy, malformed F opcodes forwarded, exact HALT, reset during busy and restart");
         $finish;
     end
 
