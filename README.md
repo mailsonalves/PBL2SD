@@ -1,4 +1,10 @@
 # Coprocessador Gráfico 2D utilizando a DE1-SoC - Desenvolvimento e projeção gráfica do Jogo Flappy Bird em Verilog.
+
+O desenvolvimento do Problema 2 com busca ativa comecou pela
+[Etapa 1: memoria de instrucoes, PC e IR](docs/pbl2-etapa1.md).
+Essa etapa possui quatro testes automatizados e preserva a demonstracao por
+botoes como modo padrao. Banco de registradores, ULA e sincronizacao de quadro
+serao acrescentados nas proximas etapas.
   <h3>
     Lucca Coutinho, Mailson Alves, Ramon Santos
   
@@ -136,15 +142,21 @@ Formato: `[31:28]` Opcode | `[27:24]` Sub-Op / ID | `[23:0]` Payloads
 
 | Opcode | Mnemônico | Formato dos Bits [27:0] | Descrição |
 | :--- | :--- | :--- | :--- |
-| `0x0` | `CLEAR_SCREEN` | `[27:24]=0xF`, `[23:0]=0` | Limpa o Framebuffer com cor nula. |
+| `0x0` | `CLEAR_SCREEN` | `[27:24]=0xF`, `[23:0]=0` | Limpa a camada de polígonos com índice zero. |
 | `0x1` | `SET_PALETTE` | `[23:16]=Addr`, `[15:0]=RGB565` | Carrega cor na tabela de paleta. |
-| `0x3` | `WRITE_TILEMAP` | `[27:22]=X`, `[21:17]=Y`, `[16:9]=TileID` | Escreve uma célula no mapa de fundo. |
+| `0x3` | `WRITE_TILEMAP` | `[21:16]=X`, `[12:8]=Y`, `[7:0]=TileID` | Escreve uma célula no mapa de fundo. |
 | `0x5` | `SET_SCROLL` | `[16:8]=Scroll_X`, `[7:0]=Scroll_Y` | Ajusta o deslocamento do fundo. |
-| `0x6` | `SET_SPRITE_POS` | `[27:23]=ID`, `[22:14]=X`, `[13:6]=Y` | Define posição lógica de um sprite. |
-| `0x7` | `DRAW_TRI_V1` | `[20:12]=X0`, `[7:0]=Y0` | Grava vértice $V_0$ do triângulo. |
-| `0x8` | `DRAW_TRI_V2` | `[20:12]=X1`, `[7:0]=Y1` | Grava vértice $V_1$ do triângulo. |
-| `0x9` | `DRAW_TRI_V3` | `[27:20]=Cor`, `[19:11]=X2`, `[7:0]=Y2` | Grava vértice $V_2$ e dispara a ULA. |
-| `0xB` | `SET_SPRITE_ATTR`| `[27:23]=ID`, `[22:15]=TileID`, `[14:9]=Flags` | Configura atributos do sprite. |
+| `0x6` | `UPDATE_BIRD_Y` | `[7:0]=Y` | Atualiza o sprite 0, com X=152, tile=1 e espelhamentos desativados. |
+| `0x7` | `DRAW_TRI_V1` | `[16:8]=X0`, `[7:0]=Y0` | Grava vértice $V_0$ do triângulo. |
+| `0x8` | `DRAW_TRI_V2` | `[16:8]=X1`, `[7:0]=Y1` | Grava vértice $V_1$ do triângulo. |
+| `0x9` | `DRAW_TRI_V3` | `[27:20]=Cor`, `[16:8]=X2`, `[7:0]=Y2` | Grava vértice $V_2$ e dispara o rasterizador. |
+| `0xF` | `HALT` | Campos restantes zero; palavra `F0000000` | Na busca ativa, para o programa sem interromper o VGA. |
+
+Esta tabela descreve o RTL atual. `SET_SPRITE_ATTR` (`0xB`) ainda nao esta
+implementado. `HALT` e interpretado pelo controlador de busca ativa e nao e
+enviado ao decodificador grafico. A ISA completa do Problema 2 sera definida
+gradualmente; os registradores de parametros atuais nao substituem seu futuro
+banco de registradores.
 
 ### 5.4 Justificativa das Decisões Adotadas
 Palavra de Instrução de 32 bits:**  

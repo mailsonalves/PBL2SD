@@ -1,4 +1,9 @@
-module gpu_de1_soc_top (
+module gpu_de1_soc_top #(
+    // 0 preserva a demonstracao original; 1 executa o programa interno.
+    parameter USE_ACTIVE_FETCH = 1'b0,
+    parameter integer PROGRAM_WORDS = 9,
+    parameter PROGRAM_FILE = "programs/fetch_demo.hex"
+) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
     input  wire [9:0]  SW,
@@ -44,20 +49,42 @@ module gpu_de1_soc_top (
 
     assign VGA_BLANK_N = video_active;
 
-    // 3. Controlador de Entradas
+    // 3. Fonte de comandos selecionada na compilacao
     wire [31:0] cmd_data;
     wire        cmd_valid;
     wire        cmd_ready;
+    wire        rast_busy;
+    wire        program_halted;
 
-    board_input_controller u_input_ctrl (
-        .clk      (CLOCK_50),
-        .rst_n    (rst_n),
-        .SW       (SW),
-        .KEY      (KEY[3:1]),
-        .cmd_ready(cmd_ready),
-        .cmd_data (cmd_data),
-        .cmd_valid(cmd_valid)
-    );
+    generate
+        if (USE_ACTIVE_FETCH) begin : gen_active_fetch
+            active_fetch_controller #(
+                .PROGRAM_WORDS(PROGRAM_WORDS),
+                .PROGRAM_FILE(PROGRAM_FILE)
+            ) u_fetch (
+                .clk(CLOCK_50),
+                .rst_n(rst_n),
+                .cmd_ready(cmd_ready),
+                .execution_busy(rast_busy),
+                .cmd_data(cmd_data),
+                .cmd_valid(cmd_valid),
+                .halted(program_halted),
+                .pc(),
+                .ir()
+            );
+        end else begin : gen_board_demo
+            assign program_halted = 1'b0;
+            board_input_controller u_input_ctrl (
+                .clk(CLOCK_50),
+                .rst_n(rst_n),
+                .SW(SW),
+                .KEY(KEY[3:1]),
+                .cmd_ready(cmd_ready),
+                .cmd_data(cmd_data),
+                .cmd_valid(cmd_valid)
+            );
+        end
+    endgenerate
 
     // 4. Decodificador de Instrucoes
     wire        pal_we;
@@ -77,7 +104,6 @@ module gpu_de1_soc_top (
     wire [7:0]  rast_color;
     wire        rast_clear_screen;
     wire        rast_start;
-    wire        rast_busy;
 
     cmd_decoder u_cmd_decoder (
         .clk              (CLOCK_50),
@@ -212,6 +238,8 @@ module gpu_de1_soc_top (
     assign LEDR[0] = rast_busy;
     assign LEDR[1] = cmd_valid;
     assign LEDR[2] = SW[0];
+    assign LEDR[3] = program_halted;
+    assign LEDR[8:4] = 5'd0;
     assign LEDR[9] = rst_n;
 
 endmodule
