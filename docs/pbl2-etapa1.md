@@ -119,12 +119,12 @@ fisica. A inicializacao por limpeza pertence ao programa de busca ativa;
 a demonstracao antiga continua com a pendencia de inicializacao de seu buffer.
 `HALT` nao espera um novo quadro nem realiza troca de buffers.
 
-Ainda faltam banco de registradores, ULA/datapath, status arquitetural,
-sincronizacao de quadro, Assembly/montador e acesso generico aos sprites para
-completar o Problema 2. Esta sequencia inicial de comandos em hexadecimal nao
+No ponto de entrega da etapa 1 faltavam banco de registradores, ULA/datapath,
+status arquitetural, sincronizacao de quadro, Assembly/montador e acesso
+generico aos sprites. O acesso generico aos sprites foi acrescentado na
+[etapa 2](pbl2-etapa2.md). Esta sequencia inicial de comandos em hexadecimal nao
 substitui o programa Assembly exigido pelo documento.
 
-A proxima etapa recomendada e acrescentar banco de registradores e uma ULA
-simples, com testes de carga de imediato e soma, usando o resultado para
-controlar um parametro grafico. Os quatro testes atuais servirao como
-regressao para verificar que a busca e os motores continuam funcionando.
+A etapa seguinte adotada foi completar os atributos basicos dos sprites antes
+de acrescentar banco de registradores e ULA. Os quatro testes desta etapa
+continuam como regressao para verificar que a busca e os motores funcionam.

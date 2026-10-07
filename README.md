@@ -5,6 +5,11 @@ O desenvolvimento do Problema 2 com busca ativa comecou pela
 Essa etapa possui quatro testes automatizados e preserva a demonstracao por
 botoes como modo padrao. Banco de registradores, ULA e sincronizacao de quadro
 serao acrescentados nas proximas etapas.
+
+A [Etapa 2: sprites genericos](docs/pbl2-etapa2.md) permite configurar os 32
+sprites por comandos de posicao, imagem, habilitacao e espelhamento. Execute
+`bash scripts/test_step2.sh` para testar essa etapa e repetir os quatro testes
+da etapa 1.
   <h3>
     Lucca Coutinho, Mailson Alves, Ramon Santos
   
@@ -138,7 +143,8 @@ A solução desenvolvida baseia-se na criação de um motor gráfico para simula
 
 ### 5.3 Conjunto de Instruções Customizado 
 
-Formato: `[31:28]` Opcode | `[27:24]` Sub-Op / ID | `[23:0]` Payloads
+Formato: `[31:28]` Opcode. Os campos restantes dependem da instrucao, conforme
+a tabela. Os comandos genericos de sprites usam ID de 5 bits em `[27:23]`.
 
 | Opcode | Mnemônico | Formato dos Bits [27:0] | Descrição |
 | :--- | :--- | :--- | :--- |
@@ -150,17 +156,18 @@ Formato: `[31:28]` Opcode | `[27:24]` Sub-Op / ID | `[23:0]` Payloads
 | `0x7` | `DRAW_TRI_V1` | `[16:8]=X0`, `[7:0]=Y0` | Grava vértice $V_0$ do triângulo. |
 | `0x8` | `DRAW_TRI_V2` | `[16:8]=X1`, `[7:0]=Y1` | Grava vértice $V_1$ do triângulo. |
 | `0x9` | `DRAW_TRI_V3` | `[27:20]=Cor`, `[16:8]=X2`, `[7:0]=Y2` | Grava vértice $V_2$ e dispara o rasterizador. |
+| `0xA` | `SET_SPRITE_POS` | `[27:23]=ID`, `[22:14]=X`, `[13:6]=Y`, `[5:0]=0` | Altera a posicao de qualquer sprite, preservando seus atributos. |
+| `0xB` | `SET_SPRITE_ATTR` | `[27:23]=ID`, `[22:15]=TileID`, `[14]=Enable`, `[13]=FlipH`, `[12]=FlipV`, `[11:0]=0` | Altera imagem, habilitacao e espelhamentos, preservando a posicao. |
 | `0xF` | `HALT` | Campos restantes zero; palavra `F0000000` | Na busca ativa, para o programa sem interromper o VGA. |
 
-Esta tabela descreve o RTL atual. `SET_SPRITE_ATTR` (`0xB`) ainda nao esta
-implementado. `HALT` e interpretado pelo controlador de busca ativa e nao e
+Esta tabela descreve o RTL atual. `HALT` e interpretado pelo controlador de busca ativa e nao e
 enviado ao decodificador grafico. A ISA completa do Problema 2 sera definida
 gradualmente; os registradores de parametros atuais nao substituem seu futuro
 banco de registradores.
 
 ### 5.4 Justificativa das Decisões Adotadas
 Palavra de Instrução de 32 bits:**  
-  Adotou-se uma ISA customizada orientada a comandos gráficos com largura fixa de 32 bits (`[31:28]` Opcode de 4 bits, `[27:24]` Sub-Op/Flags e `[23:0]` Payloads de coordenadas, cores e IDs). Essa padronização viabiliza a decodificação paralela em ciclo único e simplifica a interface com barramentos mestres. Para operações que excedem 32 bits (como triângulos, que demandam 3 vértices de 17 bits mais cor), o protocolo utiliza instruções sequenciais com *Hold Registers* internos que retêm os vértices parciais até a chegada da instrução de disparo.
+  Adotou-se uma ISA customizada orientada a comandos gráficos com largura fixa de 32 bits e opcode em `[31:28]`. Os outros campos variam por instrucao para acomodar coordenadas, cores e IDs. Para operações que excedem 32 bits, como os três vértices de um triângulo e sua cor, o protocolo utiliza instruções sequenciais com registradores internos que retêm os vértices parciais até a chegada da instrução de disparo.
 * **Downscaling Lógico para 320×240:** Reduz a necessidade de armazenamento de quadros e buffers em 75%, permitindo o uso exclusivo de memória SRAM interna da FPGA.
 
 * **Indexação por Deslocamento de Bits:** O mapeamento linear `Addr = Y * 320 + X` foi estruturado via somadores `(Y << 8) + (Y << 6) + X`, eliminando o consumo de blocos multiplicadores DSP dedicados.
@@ -206,10 +213,10 @@ Imagem Exibida no Monitor VGA
 
 Com base no escopo e no ciclo de desenvolvimento, sintetizam-se as funcionalidades que não foram integralmente concluídas:
 
-* **Espelhamento de sprites (*Flip H / Flip V*):** A lógica de inversão de leitura interna dos eixos de coordenadas nos blocos de sprites não foi concluída no circuito de varredura.
-* **Salvamento das 32 sprites em memória:** A estrutura de armazenamento e o gerenciamento para o conjunto total dos 32 slots de sprites não foram totalmente integrados à rotina de renderização dinâmica em tempo real.
+* **Validacao fisica dos sprites genericos:** Posicao, imagem, habilitacao e espelhamentos dos 32 sprites estao integrados e possuem testes de simulacao na etapa 2. A nova versao ainda precisa ser sintetizada e testada na placa.
+* **Prioridade e transparencia entre sprites:** A prioridade permanece fixa pelo menor ID. A selecao ainda ocorre antes da leitura da cor; um pixel transparente do sprite escolhido nao revela outro sprite inferior. Esses ajustes pertencem a uma proxima etapa.
 * **Mudança da paleta de cores das sprites:** A seleção e comutação dinâmica de sub-paletas de cores para instâncias específicas de sprites não foram conectadas ao estágio de composição final.
-* **Generalização do rasterizador de polígonos:** O módulo de rasterização atual foi validado para geometrias e primitivas de teste pré-estabelecidas, não possuindo capacidade de renderizar qualquer triângulo ou retângulo arbitrário proposto em tempo de execução.
+* **Validacao geral do rasterizador de polígonos:** O motor aceita vertices parametrizados, mas os testes automatizados atuais ainda nao cobrem todos os formatos, limites e casos degenerados de triangulos e retangulos.
 
 ---
 

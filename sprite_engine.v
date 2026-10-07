@@ -6,6 +6,7 @@ module sprite_engine (
     input  wire        sat_we,
     input  wire [4:0]  sat_addr,
     input  wire [31:0] sat_data,
+    input  wire [31:0] sat_write_mask,
     
     output reg  [13:0] sp_vram_addr // Endereço para a VRAM
 );
@@ -19,7 +20,10 @@ module sprite_engine (
             // Inicia o Lulinha (Tile ID 1) no centro da tela
             sat_ram[0] <= {1'b1, 1'b0, 1'b0, 4'd0, 9'd150, 8'd100, 8'h01};
         end else if (sat_we) begin
-            sat_ram[sat_addr] <= sat_data;
+            // Bits com mascara 1 sao atualizados; os demais sao preservados.
+            // Posicao e atributos podem ser enviados em comandos separados.
+            sat_ram[sat_addr] <= (sat_ram[sat_addr] & ~sat_write_mask) |
+                                 (sat_data & sat_write_mask);
         end
     end
 
@@ -37,8 +41,11 @@ module sprite_engine (
             wire [7:0] sp_y  = attr[15:8];
             wire [7:0] base_id = attr[7:0];
 
-            wire inside_x = (pixel_x >= sp_x) && (pixel_x < sp_x + 9'd16);
-            wire inside_y = (pixel_y >= sp_y) && (pixel_y < sp_y + 8'd16);
+            // Um bit extra evita que X+16 ou Y+16 volte a zero por overflow.
+            wire inside_x = (pixel_x >= sp_x) &&
+                            ({1'b0, pixel_x} < {1'b0, sp_x} + 10'd16);
+            wire inside_y = (pixel_y >= sp_y) &&
+                            ({1'b0, pixel_y} < {1'b0, sp_y} + 9'd16);
             wire hit      = enable && inside_x && inside_y;
 
             wire [3:0] rel_x = pixel_x[3:0] - sp_x[3:0];

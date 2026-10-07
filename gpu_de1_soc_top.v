@@ -99,6 +99,7 @@ module gpu_de1_soc_top #(
     wire        sat_we;
     wire [4:0]  sat_addr;
     wire [31:0] sat_data;
+    wire [31:0] sat_write_mask;
     wire [8:0]  rast_x0, rast_x1, rast_x2;
     wire [7:0]  rast_y0, rast_y1, rast_y2;
     wire [7:0]  rast_color;
@@ -123,6 +124,7 @@ module gpu_de1_soc_top #(
         .sat_we           (sat_we),
         .sat_addr         (sat_addr),
         .sat_data         (sat_data),
+        .sat_write_mask   (sat_write_mask),
         .rast_x0          (rast_x0), .rast_y0(rast_y0),
         .rast_x1          (rast_x1), .rast_y1(rast_y1),
         .rast_x2          (rast_x2), .rast_y2(rast_y2),
@@ -156,9 +158,10 @@ module gpu_de1_soc_top #(
         .rst_n             (rst_n),
         .pixel_x           (pixel_x),
         .pixel_y           (pixel_y),
-        .sat_we            (sat_we),      // Agora ligado!
-        .sat_addr          (sat_addr),    // Agora ligado!
-        .sat_data          (sat_data),    // Agora ligado!
+        .sat_we            (sat_we),
+        .sat_addr          (sat_addr),
+        .sat_data          (sat_data),
+        .sat_write_mask    (sat_write_mask),
         .sp_vram_addr      (sp_vram_addr)
     );
 

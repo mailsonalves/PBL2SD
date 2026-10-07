@@ -126,6 +126,7 @@ set_global_assignment -name VERILOG_FILE cmd_decoder.v
 set_global_assignment -name VERILOG_FILE instruction_memory.v
 set_global_assignment -name VERILOG_FILE active_fetch_controller.v
 set_global_assignment -name HEX_FILE programs/fetch_demo.hex
+set_global_assignment -name HEX_FILE programs/sprites_demo.hex
 set_global_assignment -name VERILOG_FILE color_palette.v
 set_global_assignment -name VERILOG_FILE compositor.v
 set_global_assignment -name VERILOG_FILE polygon_buffer.v

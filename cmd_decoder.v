@@ -17,6 +17,7 @@ module cmd_decoder (
     output reg         sat_we,
     output reg  [4:0]  sat_addr,
     output reg  [31:0] sat_data,
+    output reg  [31:0] sat_write_mask,
     output reg  [8:0]  rast_x0, rast_x1, rast_x2,
     output reg  [7:0]  rast_y0, rast_y1, rast_y2,
     output reg  [7:0]  rast_color,
@@ -44,6 +45,7 @@ module cmd_decoder (
             sat_we            <= 1'b0;
             sat_addr          <= 5'd0;
             sat_data          <= 32'd0;
+            sat_write_mask    <= 32'd0;
             rast_x0           <= 9'd0; rast_y0 <= 8'd0;
             rast_x1           <= 9'd0; rast_y1 <= 8'd0;
             rast_x2           <= 9'd0; rast_y2 <= 8'd0;
@@ -83,10 +85,9 @@ module cmd_decoder (
                     4'h6: begin // UPDATE_BIRD_Y
                         sat_we   <= 1'b1;
                         sat_addr <= 5'd0;
-                        // =======================================================
-                        // CORREÇÃO AQUI: X fixado em 152 (Meio da tela)
-                        // =======================================================
+                        // Compatibilidade com a demonstracao original por botoes.
                         sat_data <= {1'b1, 1'b0, 1'b0, 4'd0, 9'd152, cmd_data[7:0], 8'h01};
+                        sat_write_mask <= 32'hFFFFFFFF;
                     end
                     4'h7: begin // DRAW_TRI_V1
                         rast_x0 <= cmd_data[16:8];
@@ -101,6 +102,19 @@ module cmd_decoder (
                         rast_x2    <= cmd_data[16:8];
                         rast_y2    <= cmd_data[7:0];
                         rast_start <= 1'b1;
+                    end
+                    4'hA: begin // SET_SPRITE_POS: altera apenas X e Y.
+                        sat_we <= 1'b1;
+                        sat_addr <= cmd_data[27:23];
+                        sat_data <= {7'd0, cmd_data[22:14], cmd_data[13:6], 8'd0};
+                        sat_write_mask <= 32'h01FFFF00;
+                    end
+                    4'hB: begin // SET_SPRITE_ATTR: imagem, enable e espelhamentos.
+                        sat_we <= 1'b1;
+                        sat_addr <= cmd_data[27:23];
+                        sat_data <= {cmd_data[14], cmd_data[13], cmd_data[12],
+                                     4'd0, 9'd0, 8'd0, cmd_data[22:15]};
+                        sat_write_mask <= 32'hE00000FF;
                     end
                     default: ;
                 endcase
