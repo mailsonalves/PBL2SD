@@ -1,6 +1,6 @@
 # Galeria de recursos na DE1-SoC
 
-Este guia usa a branch `pbl2/etapa4-arquitetura-demonstracao`. A galeria de oito telas é o modo padrão; não é necessário jogar ou editar parâmetros. O programa executa pela arquitetura programável e demonstra recursos separadamente.
+Este guia usa a branch `pbl2/etapa5-correcao-memorias-quartus`. Ela corrige a inicialização das memórias gráficas que ficou vazia na compilação da etapa 4; veja o [diagnóstico e a correção](pbl2-etapa5.md). A galeria de oito telas é o modo padrão; não é necessário jogar ou editar parâmetros. O programa executa pela arquitetura programável e demonstra recursos separadamente.
 
 ## Compilar e gravar
 

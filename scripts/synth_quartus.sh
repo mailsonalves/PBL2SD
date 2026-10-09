@@ -105,6 +105,7 @@ if (( prepare_only )); then
 fi
 cd "$run_dir"
 quartus_sh --flow compile gpu 2>&1 | tee compile.log
+python3 "$repo_dir/scripts/check_quartus_memory.py" output_files/gpu.map.rpt
 printf 'Compilacao concluida. Confira recursos, clocks, slack e caminhos nao restringidos em %s/output_files.\n' "$run_dir"
 printf 'Arquivo para o Quartus Programmer: %s/output_files/gpu.sof\n' "$run_dir"
 printf 'A conclusao do comando nao substitui a revisao de timing nem a demonstracao na placa.\n'

@@ -99,6 +99,7 @@ write_rtlil $run_dir/structure.il
 YOSYS
 run_yosys structure
 echo 'Estrutura: hierarquia, drivers e memorias verificados.'
+python3 scripts/check_memory_init.py "$run_dir" | tee "$run_dir/init-summary.txt"
 if (( structure_only )); then
     echo "Estatisticas estruturais: $run_dir/structure.log"
     exit 0

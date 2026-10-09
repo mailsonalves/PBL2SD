@@ -2,7 +2,7 @@
 
 Projeto em Verilog para a DE1-SoC, desenvolvido por **Lucca Coutinho, Mailson Alves e Ramon Santos**, do curso de Engenharia de Computação da Universidade Estadual de Feira de Santana (UEFS).
 
-A branch atual, `pbl2/etapa4-arquitetura-demonstracao`, continua a partir de `pbl2/etapa3-conclusao-pbl1`. Ela acrescenta a arquitetura programável do Problema 2 e uma **galeria interativa de oito telas**, para demonstrar os recursos gráficos na placa sem depender do jogo anterior. A `main` permanece preservada.
+A branch atual, `pbl2/etapa5-correcao-memorias-quartus`, continua a partir da etapa 4 e corrige o carregamento dos arquivos gráficos no Quartus. O [relatório da correção](docs/pbl2-etapa5.md) registra os avisos encontrados na compilação da placa e a alteração. A arquitetura programável do Problema 2 e a **galeria interativa de oito telas** são preservadas. A `main` permanece intacta.
 
 O programa da galeria é escrito em Assembly da ISA do projeto e armazenado na memória interna. Registradores, ULA, saltos e sincronização de quadros controlam a demonstração. **A compilação no Quartus, os relatórios de timing e a validação desta versão na DE1-SoC ainda precisam ser registrados.** A simulação não substitui essa etapa.
 

@@ -13,12 +13,19 @@ module pattern_vram #(
     output reg  [7:0]  data_out_b
 );
 
-    // Constante em bytes: aceita nomes selecionados por parametros no Icarus.
+`ifdef __ICARUS__
+    // Workaround apenas do Icarus: nomes selecionados por ternario.
+    // Quartus deve receber a string original, sem padding com bytes zero.
     localparam [8*256-1:0] PATTERN_FILE_BYTES = PATTERN_FILE;
+`endif
     (* ramstyle = "M10K, no_rw_check" *) reg [7:0] ram [0:16383];
 
     initial begin
+`ifdef __ICARUS__
         $readmemh(PATTERN_FILE_BYTES, ram);
+`else
+        $readmemh(PATTERN_FILE, ram);
+`endif
     end
 
     always @(posedge clk) begin
