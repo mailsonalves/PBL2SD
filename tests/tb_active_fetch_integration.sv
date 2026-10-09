@@ -8,7 +8,9 @@ module tb_active_fetch_integration;
     wire hs, vs, blank, sync_n, pixel_clock;
     wire [7:0] red, green, blue;
 
-    gpu_de1_soc_top #(.USE_ACTIVE_FETCH(1)) dut (
+    gpu_de1_soc_top #(.USE_PROGRAMMABLE_CORE(0), .SHOWCASE(0),
+        .USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(9),
+        .PROGRAM_FILE("programs/fetch_demo.hex")) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green),
         .VGA_B(blue), .VGA_BLANK_N(blank), .VGA_SYNC_N(sync_n),

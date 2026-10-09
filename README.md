@@ -2,142 +2,164 @@
 
 Projeto em Verilog para a DE1-SoC, desenvolvido por **Lucca Coutinho, Mailson Alves e Ramon Santos**, do curso de Engenharia de Computação da Universidade Estadual de Feira de Santana (UEFS).
 
-O desenvolvimento é organizado em branches encadeadas. A etapa atual, `pbl2/etapa3-conclusao-pbl1`, trata das pendências gráficas do Problema 1 sobre a busca ativa e os sprites genéricos das etapas anteriores. A `main` permanece no ponto já publicado, até autorização para integrar as alterações.
+A branch atual, `pbl2/etapa4-arquitetura-demonstracao`, continua a partir de `pbl2/etapa3-conclusao-pbl1`. Ela acrescenta a arquitetura programável do Problema 2 e uma **galeria interativa de oito telas**, para demonstrar os recursos gráficos na placa sem depender do jogo anterior. A `main` permanece preservada.
 
-O RTL possui background por tiles, 32 sprites, rasterização de polígonos, composição e paleta de cores. Os testes de simulação e os procedimentos de síntese são reproduzíveis. **A compilação final no Quartus, a análise de timing e a demonstração desta versão na placa continuam necessárias.** Consulte o [guia da etapa 3](docs/pbl1-etapa3.md) e o [roteiro de validação física](docs/validacao-fisica-pbl1.md).
+O programa da galeria é escrito em Assembly da ISA do projeto e armazenado na memória interna. Registradores, ULA, saltos e sincronização de quadros controlam a demonstração. **A compilação no Quartus, os relatórios de timing e a validação desta versão na DE1-SoC ainda precisam ser registrados.** A simulação não substitui essa etapa.
+
+## Começar na placa
+
+1. Abra **`gpu.qpf` desta branch** no Quartus, mantendo todas as pastas do projeto. O modo padrão agora é a galeria; não precisa editar parâmetros para selecioná-la.
+2. Execute **Processing → Start Compilation**. Isso produz `output_files/gpu.sof` no computador.
+3. Abra **Tools → Programmer**, selecione USB-Blaster em **Hardware Setup**, adicione esse `.sof`, marque **Program/Configure** e clique em **Start**.
+4. Depois de gravar, conecte o monitor VGA e pressione e solte **KEY0**. O programa inicia sozinho na FPGA.
+
+**Compilar produz o arquivo; gravar faz a FPGA executar o circuito novo.** O `.sof` não é um programa Linux: copiar o arquivo por SSH não muda a configuração da FPGA. Esta branch usa busca ativa e não inclui uma ponte HPS ou um carregador pelo Linux da placa.
+
+| Controle | Função na galeria |
+|---|---|
+| `SW[2:0]` | Seleciona a tela de 0 a 7 no modo manual. |
+| `SW[9]=0` | Modo manual. |
+| `SW[9]=1` | Modo automático: percorre as telas. |
+| `SW[8]=1` | Pausa a animação. |
+| `KEY1` | Avança um passo quando pausado. |
+| `KEY2` | Solicita a próxima tela no modo automático. |
+| `KEY3` | Reinicia a animação da tela. |
+| `KEY0` | Reinicia o circuito e o programa. |
+
+As telas demonstram background/scroll X/Y; os 32 sprites; flips H/V; transparência/prioridades; paleta/bancos; triângulos/retângulos/recorte; buffer duplo; e status/erros. O [guia para demonstrar na placa](docs/demonstracao-na-placa.md) explica o que observar em cada uma.
+
+![Oito telas da galeria capturadas na simulação](docs/galeria-simulada.png)
+
+Esta imagem reúne **capturas da simulação**, obtidas dos pinos RGB/VGA pelo `tb_showcase_video`, com animação pausada na fase 0. Não é uma foto da FPGA. As imagens individuais ficam em `.build/showcase/painel0.ppm` até `painel7.ppm`.
 
 ## Arquitetura
 
 ```text
-Botões OU memória de instruções → controle de comandos → motores gráficos
-                                                            ↓
-VGA: coordenadas e evento de quadro → composição → paleta → RGB e sincronismo
+Memória de instruções → busca/PC/IR → controle → registradores ↔ ULA geral
+                                         ↓                     ↓
+                                  comandos imediatos ou calculados
+                                         ↓
+                         decoder → background / sprites / polígonos
+                                                    ↓
+VGA e controle de quadro contínuos → compositor → paleta → RGB e sincronismo
 ```
+
+O processador executa instruções de 32 bits com busca ativa. Há 16 registradores de 32 bits, com R0 fixo em zero, flags Z/N/C/V, status dos motores e erro acumulado. `WAIT_FRAME` aguarda um novo intervalo vertical; saltos e condições permitem laços. `CMD` envia um comando montado em um registrador ao decoder gráfico. O núcleo mantém comandos estáveis até a aceitação e aguarda operações ocupadas, sem interromper a varredura VGA.
 
 | Módulo | Responsabilidade |
 |---|---|
-| `gpu_de1_soc_top` | Integração, seleção da origem de comandos, reset, clocks, alinhamento dos pixels e pinos da placa. |
-| `board_input_controller` | Demonstração por botões, com espera pela aceitação dos comandos. |
-| `instruction_memory` / `active_fetch_controller` | Programa interno, PC, IR, execução sequencial, espera por conclusão e `HALT`. |
-| `cmd_decoder` | Validação dos campos e envio de operações aos motores; comando inválido gera erro sem alterar as unidades gráficas. |
-| `vga_sync` | Contadores, sincronismo, área visível, coordenadas lógicas e intervalo vertical. |
-| `bg_engine` / `tilemap_ram` | Mapa 40×30 de tiles 8×8, atualização de células e rolagem nos dois eixos. |
-| `pattern_vram` | Padrões indexados de 256 tiles, carregados de `tiles.hex`. |
-| `sprite_engine` | 32 sprites 16×16, posição, imagem, habilitação, espelhamentos, prioridade, transparência e banco de paleta. |
-| `polygon_rasterizer` / `raster_alu` | Controle de varredura e datapath inteiro de funções de aresta para preencher triângulos. Retângulos usam dois triângulos. |
-| `polygon_buffer` | Inicialização sequencial e dois buffers para a camada de polígonos, com troca no intervalo vertical. |
-| `compositor` / `color_palette` | Prioridade sprite → polígono → background e tradução do índice para RGB de 24 bits. |
+| `gpu_de1_soc_top` | Integração, origem de comandos, entradas da placa, reset, clocks, alinhamento e pinos. |
+| `instruction_memory` / `gpu_program_core` | Memória interna, busca, PC/IR, controle, datapath e execução do programa. |
+| `gpu_register_file` / `gpu_alu` | Banco de 16×32 bits e operações gerais com operandos de registradores/imediatos. |
+| `gpu_status_register` / `gpu_frame_control` | Flags/erro registrados, estados observáveis e contador de quadros independente. |
+| `cmd_decoder` | Validação e envio aos motores; comando inválido gera erro sem alterar a cena. |
+| `vga_sync` | Coordenadas, área visível, sincronismo e início do intervalo vertical. |
+| `bg_engine` / `tilemap_ram` / `pattern_vram` | Mapa 40×30 de tiles 8×8, 256 padrões, atualização de células e scroll X/Y. |
+| `sprite_engine` | 32 sprites 16×16, posição, imagem, enable, flips, prioridade, transparência e banco de paleta. |
+| `polygon_rasterizer` / `raster_alu` | Rasterização inteira de triângulos; retângulos por dois triângulos. |
+| `polygon_buffer` | Inicialização e dois buffers de polígonos, com apresentação no intervalo vertical. |
+| `compositor` / `color_palette` | Prioridade sprite → polígono → background e CLUT de 256 cores RGB. |
 
-A entrada é 50 MHz e o clock VGA é 25 MHz. Com 800 períodos por linha e 525 linhas por quadro, a frequência real é aproximadamente **59,52 Hz**. A área física é 640×480; a cena lógica é 320×240, ampliada em 2×2.
+`gpu_alu` é a ULA geral das instruções; `raster_alu` calcula arestas de polígonos. Essa separação preserva o motor gráfico e torna os cálculos do programa independentes da rasterização.
 
-A `raster_alu` é uma **ULA gráfica especializada**, usada pelo rasterizador. Ela não substitui o banco de registradores, a ULA geral e o datapath de execução de instruções que ainda serão desenvolvidos para o Problema 2. O registrador de status, o controle programável de quadros e a ISA/Assembly completos também permanecem para os próximos checkpoints.
+O clock de entrada é 50 MHz; o VGA usa 25 MHz, 800 períodos por linha e 525 linhas por quadro, aproximadamente **59,52 Hz**. A cena lógica 320×240 é ampliada em 2×2 para 640×480. Quadro, compositor e VGA continuam ativos durante espera, desenho e `HALT`.
 
-## Renderização e memória
+## Requisitos e decisões
 
-- O background usa `tilemap_data.hex`; padrões e paleta usam `tiles.hex` e `palette.hex`. As escritas no mapa rejeitam coordenadas fora de 40×30 e a rolagem trata os campos completos sem truncar a soma antes da repetição.
-- Cada sprite tem um cache de 256 pixels. Uma ROM de padrões abastece os caches por 256 leituras sequenciais, com latência adicional do pipeline. `busy` permanece ativo até o último pixel ser gravado; um cache inválido não é exibido. Isso evita replicar toda a ROM para cada sprite.
-- Entre sprites opacos, vence o maior valor de prioridade, de 0 a 3; no empate, vence o menor ID. Pixels transparentes permitem ver os sprites atrás deles.
-- Sem banco de paleta, o índice completo de oito bits é usado e zero é transparente. Com banco habilitado, o índice é `{banco[3:0], pixel[3:0]}` e o nibble inferior zero é transparente, independentemente do banco.
-- O rasterizador captura os vértices e a cor ao iniciar. Arestas são inclusivas, as duas ordens de vértices são aceitas e triângulos de área zero não escrevem pixels. O recorte de escrita é 320×240.
-- Os dois buffers de polígonos são limpos no reset. Com buffer duplo habilitado, os desenhos vão para o buffer de trás; uma solicitação de apresentação aguarda o evento de quadro e libera o próximo comando após a troca.
-
-**O buffer duplo cobre somente os polígonos.** Escritas em sprites, tilemap e CLUT continuam diretas e não são atualizações atômicas do quadro inteiro. O VGA segue funcionando durante a inicialização, desenhos, carregamento de sprites e espera pela apresentação.
-
-## Comandos de 32 bits
-
-O opcode ocupa `[31:28]`. Campos reservados devem ser zero. Os comandos de sprites usam ID em `[27:23]`, de 0 a 31.
-
-| Opcode / palavra | Comando | Campos e efeito |
+| Requisito | Implementação / decisão | Evidência necessária |
 |---|---|---|
-| `0F000000` | `CLEAR_SCREEN` | Limpa o buffer de desenho de polígonos com índice zero. |
-| `0x1` | `SET_PALETTE` | `[23:16]` endereço; `[15:0]` cor RGB565. |
-| `0x3` | `WRITE_TILEMAP` | `[21:16]` X; `[12:8]` Y; `[7:0]` tile. |
-| `0x5` | `SET_SCROLL` | `[16:8]` X; `[7:0]` Y. |
-| `0x6` | `UPDATE_BIRD_Y` | `[7:0]` Y. Compatibilidade: sprite 0, X=152, tile=1, habilitado, sem flips e estilo padrão. |
-| `0x7` | `DRAW_TRI_V1` | `[16:8]` X0; `[7:0]` Y0. |
-| `0x8` | `DRAW_TRI_V2` | `[16:8]` X1; `[7:0]` Y1. |
-| `0x9` | `DRAW_TRI_V3` | `[27:20]` cor; `[16:8]` X2; `[7:0]` Y2. Inicia o desenho. |
-| `0xA` | `SET_SPRITE_POS` | `[27:23]` ID; `[22:14]` X; `[13:6]` Y. Preserva os atributos. |
-| `0xB` | `SET_SPRITE_ATTR` | `[27:23]` ID; `[22:15]` tile inicial; `[14]` enable; `[13]` flip horizontal; `[12]` flip vertical. Preserva a posição e o estilo. |
-| `0xC` | `SET_SPRITE_STYLE` | `[27:23]` ID; `[22:21]` prioridade; `[20]` habilitação de banco; `[19:16]` banco de paleta. |
-| `D0000000` / `D0000001` | `BUFFER_CONFIG` | Desabilita / habilita buffer duplo de polígonos. |
-| `D1000000` | `BUFFER_SWAP` | Solicita apresentação no intervalo vertical; exige buffer duplo habilitado. |
-| `F0000000` | `HALT` | Encerra o programa da busca ativa, mantendo o VGA. |
+| ISA de 32 bits e Assembly da equipe | [ISA documentada](docs/pbl2-isa.md), assembler Python e `programs/showcase.asm`. | Codificação e execução do programa. |
+| Busca, IR, controle, datapath e banco | Memória interna, núcleo programável, R0–R15 e ULA geral. | Testes por módulo e integração. |
+| Registrador de status | Flags, erro acumulado e estado dos motores/quadros. | Operações aritméticas, erros e esperas. |
+| Sincronização com VGA | `WAIT_FRAME`, contador de quadros e apresentação de polígonos no intervalo vertical. | Simulação e demonstração física. |
+| Background, sprites, polígonos, compositor e VGA | Motores da etapa 3 preservados e controlados pela ISA. | Regressões e galeria na placa. |
+| Inicialização definida e comunicação valid/busy | Reset de controles, validade dos caches, limpeza de buffers e espera por conclusão. | Simulação em quatro estados e testes de espera. |
+| Projeto reproduzível | QPF/QSF/SDC, arquivos HEX, programas, scripts e documentação. | Compilação Quartus com fontes atuais. |
+| Recursos, Fmax e timing | Scripts de pré-síntese/compilação e clocks de 20/40 ns no SDC. | Relatórios novos do Quartus/TimeQuest. |
+| Demonstração obrigatória na DE1-SoC | Galeria e roteiro de observação. | Execução na placa e casos do tutor. |
 
-`HALT` é tratado pelo controlador de busca, não pelo decodificador gráfico. Os formatos acima descrevem os comandos atuais; a ISA programável completa do Problema 2 será consolidada nas próximas etapas.
+A busca ativa permite trabalhar sem driver ARM, fila MMIO ou aplicação C nesta entrega. As operações demonstradas são consequências de instruções da ISA. As entradas físicas são lidas pelo programa; não acionam diretamente os motores.
 
-## Testes reproduzíveis
+## Assembly e testes no Linux
 
-Use Verilator 5, compilador C++, Make e Icarus Verilog no `PATH`. Os testes RTL dispensam placa e SDL2. Neste ambiente em nuvem:
+Use Python 3, Verilator 5, Icarus Verilog, Make e compilador C++ no `PATH`. Os testes dispensam placa e SDL. No Ubuntu/Debian:
 
 ```bash
-cd /workspace/PBL1SD
+sudo apt update
+sudo apt install python3 verilator iverilog make g++
+```
+
+Na pasta desta branch:
+
+```bash
+bash scripts/test_step4.sh
+# Somente o conjunto da arquitetura programável:
+bash scripts/test_step4.sh --cpu-only
+# Somente a galeria, comandos e vídeo:
+bash scripts/test_step4.sh --gallery-only
+```
+
+O conjunto completo reúne 25 testbenches RTL distintos, incluindo as 17 regressões da etapa 3, e 11 testes Python do assembler. Quatro testes da CPU também executam com Icarus em quatro estados; a inicialização do top-level é verificada nos modos legado e programável. Cada teste concluído imprime `PASS`; erro ou timeout retorna código diferente de zero. Logs/executáveis ficam em `.build/`. O [relatório da etapa 4](docs/pbl2-etapa4.md) registra cobertura e resultados medidos.
+
+A suíte completa passou: 25 testbenches RTL e 11 testes do assembler, incluindo as regressões e as verificações em quatro estados. A integração da galeria verificou comandos/controles nas oito telas e comparou RGB/sincronismo em 6.720.000 ciclos simulados com a temporização VGA do projeto. Isso prepara a demonstração física, que continua pendente.
+
+`programs/showcase.asm` é a fonte do programa; `programs/showcase.hex` é o executável da memória interna. A [especificação da ISA](docs/pbl2-isa.md) define formatos, flags, labels e pseudoinstruções gráficas. Para gerar ou conferir o executável e as memórias gráficas:
+
+```bash
+python3 scripts/assemble.py programs/showcase.asm
+python3 scripts/assemble.py programs/showcase.asm --check
+python3 scripts/generate_showcase_assets.py --check
+```
+
+Ao alterar o Assembly, gere novamente o `.hex`; se o tamanho mudar, atualize `PROGRAM_WORDS` antes de compilar pela interface do Quartus. O script de compilação calcula esse tamanho automaticamente na cópia isolada.
+
+Neste ambiente em nuvem, ative as ferramentas locais com:
+
+```bash
 source /workspace/.pbl-tools/activate.sh
-bash scripts/test_step3.sh
 ```
 
-O script executa os testes da etapa 3, a regressão das etapas anteriores e a verificação de inicialização com Icarus Verilog. Para executar apenas a verificação em quatro estados (`0`, `1`, `X`, `Z`):
+## Compilar e escolher outros modos
+
+O projeto aberto pela interface do Quartus usa a galeria como padrão. Pelo terminal, com Quartus e suporte Cyclone V instalados:
 
 ```bash
-bash scripts/test_step3.sh --four-state-only
-```
-
-Os testbenches conferem sprites, prioridades, transparência, paleta, background e limites, memórias e compositor, rasterização, reset, comandos inválidos, espera por aceitação, buffers e VGA. Erro ou timeout deve interromper a execução com código diferente de zero; cada teste concluído imprime `PASS`. Consulte o [guia da etapa 3](docs/pbl1-etapa3.md) para comandos, cobertura e resultados da execução desta branch.
-
-## Executar os programas internos
-
-O top-level mantém `USE_ACTIVE_FETCH=0` como padrão: `KEY[0]` é reset, `KEY[1]` aplica impulso ao pássaro, `KEY[2]` solicita triângulo e `KEY[3]` solicita retângulo.
-
-Com busca ativa, os parâmetros padrão são `PROGRAM_WORDS=9` e `PROGRAM_FILE="programs/fetch_demo.hex"`. Para o programa de validação gráfica de 17 palavras, configure:
-
-```verilog
-gpu_de1_soc_top #(
-    .USE_ACTIVE_FETCH(1),
-    .PROGRAM_WORDS(17),
-    .PROGRAM_FILE("programs/pbl1_validation.hex")
-) instancia (...);
-```
-
-A seleção é feita na compilação, não por chave física. O programa é finito: configura a cena e termina em `HALT`; não implementa ainda um jogo completo nem um laço Assembly. `LEDR[3]` indica parada do programa, `LEDR[4]` registra erro de comando, `LEDR[5]` indica buffers inicializados e `LEDR[7]` indica buffer duplo habilitado.
-
-Os guias históricos das [etapas 1](docs/pbl2-etapa1.md) e [2](docs/pbl2-etapa2.md) descrevem aqueles checkpoints. As limitações citadas neles devem ser interpretadas conforme a versão de cada etapa.
-
-## Síntese e teste na DE1-SoC
-
-O precheck usa Yosys para verificar estrutura e inferência preliminar de RAM. Não gera bitstream nem comprova frequência ou recursos definitivos:
-
-```bash
-bash scripts/synth_precheck.sh
-bash scripts/synth_precheck.sh --active
-# Apenas hierarquia, drivers e memórias:
-bash scripts/synth_precheck.sh --structure-only
-```
-
-Com Quartus Prime e suporte Cyclone V instalados:
-
-```bash
+# Galeria atual: padrão; --showcase ou --pbl2 também selecionam este modo.
 bash scripts/synth_quartus.sh
-# Busca ativa com fetch_demo.hex, o programa padrão de nove palavras:
+# Preparar a cópia e conferir arquivos, sem compilar:
+bash scripts/synth_quartus.sh --prepare-only
+# Demonstração histórica por botões:
+bash scripts/synth_quartus.sh --legacy
+# Busca ativa antiga, com nove palavras:
 bash scripts/synth_quartus.sh --active
-# Novo programa de validacao desta etapa (17 palavras):
+# Validação gráfica da etapa 3, com 17 palavras:
 bash scripts/synth_quartus.sh --pbl1
-# Somente preparar uma copia revisavel, sem exigir Quartus:
-bash scripts/synth_quartus.sh --pbl1 --prepare-only
 ```
 
-A compilação usa uma cópia em `.build/quartus/`, preservando saídas históricas. `--pbl1` aplica os três parâmetros do programa novo apenas nessa cópia. Verifique recursos, inferência de RAM, clocks, setup/hold e caminhos não restringidos antes de programar a placa.
+O script compila uma cópia em `.build/quartus/run.XXXXXX`. Use o `.sof` de `output_files/` **dessa cópia**, indicado no terminal. Ao compilar pela interface diretamente na pasta do projeto, use o `.sof` recém-gerado em `output_files/`. Arquivos/relatórios históricos do repositório não comprovam esta versão.
 
-O projeto inclui `gpu.sdc` com clocks de 20/40 ns. As restrições externas VGA ainda precisam ser confirmadas com a placa e o DAC, conforme o [roteiro de validação física](docs/validacao-fisica-pbl1.md). Os arquivos `.sof` e relatórios antigos do repositório **não validam o RTL desta branch**.
+O [guia de bancada](docs/demonstracao-na-placa.md) orienta gravação, controles e evidências. A [validação física da etapa 4](docs/validacao-fisica-pbl2.md) apresenta a pré-síntese e as evidências necessárias do Quartus. As restrições VGA ainda são provisórias: confirme-as com DAC e revisão da placa antes de aprovar timing externo.
+
+## Limitações e entrega física
+
+- O buffer duplo cobre polígonos. SAT, tilemap e CLUT recebem alterações diretas; não há atualização atômica de todas as camadas.
+- Trocar a imagem de um sprite exige 256 leituras para seu cache, com latência de pipeline. Isso limita trocas de imagens, mas o VGA continua ativo.
+- Não há ponte HPS/ARM ou driver Linux. Para mudar o programa na FPGA, compile e grave uma nova configuração.
+- Uma gravação `.sof` é volátil: normalmente se perde ao desligar a placa.
+- A pré-síntese Yosys da galeria passou nas verificações estruturais e no mapeamento preliminar Cyclone V, com 226 M10K. Ela não gera `.sof`, Fmax nem aprovação de timing. Recursos definitivos dependem de síntese, fitting e TimeQuest no Quartus.
+- Registre a revisão física da DE1-SoC e a versão do Quartus da bancada. O dispositivo selecionado é Cyclone V `5CSEMA5F31C6`.
+
+Os guias das [etapas 1](docs/pbl2-etapa1.md), [2](docs/pbl2-etapa2.md) e [3](docs/pbl1-etapa3.md) descrevem checkpoints anteriores. Seus resultados pertencem àquelas versões. O [relatório atual](docs/pbl2-etapa4.md) distingue implementação, simulação e pendências externas.
 
 ## Registro histórico
 
-A foto abaixo pertence à demonstração da versão original do projeto. Ela preserva o histórico do trabalho dos autores e não comprova a validação física das modificações atuais.
+A foto abaixo pertence à versão original. Ela preserva o histórico dos autores e não comprova validação física das modificações atuais.
 
 <img width="388" height="217" alt="Demonstração histórica da versão original em monitor VGA" src="https://github.com/user-attachments/assets/1fb03705-2e35-4b36-98c0-8fe2694bb123" />
 
 ## Referências
 
-- Terasic, *DE1-SoC User Manual* e esquema da revisão utilizada.
-- Intel, *Cyclone V Device Handbook* e documentação de Quartus/TimeQuest.
-- Pineda, Juan. *A Parallel Approach to Polygon Rasterization*. SIGGRAPH, 1988.
 - Documentos dos Problemas 1 e 2 fornecidos no curso.
+- Terasic, *DE1-SoC User Manual* e esquema da revisão utilizada.
+- Intel, *Cyclone V Device Handbook* e documentação Quartus/TimeQuest.
+- Pineda, Juan. *A Parallel Approach to Polygon Rasterization*. SIGGRAPH, 1988.

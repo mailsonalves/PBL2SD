@@ -1,13 +1,17 @@
 `timescale 1ns/1ps
 // Executar com Icarus: quatro estados para detectar X que Verilator nao modela.
-module tb_initialization;
+module tb_initialization #(
+    parameter USE_PROGRAMMABLE_CORE = 0,
+    parameter SHOWCASE = 0
+);
     reg clock = 0;
     always #10 clock = ~clock;
     reg [3:0] keys = 4'hE;
     wire [9:0] leds;
     wire hs, vs, blank, sync_n, pixel_clock;
     wire [7:0] red, green, blue;
-    gpu_de1_soc_top #(.USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(1),
+    gpu_de1_soc_top #(.USE_PROGRAMMABLE_CORE(USE_PROGRAMMABLE_CORE), .SHOWCASE(SHOWCASE),
+        .USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(1),
         .PROGRAM_FILE("tests/fixtures/halt.hex")) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green), .VGA_B(blue),
@@ -36,7 +40,8 @@ module tb_initialization;
                 if (dut.u_poly_buffer.ram[i] !== 0 || dut.u_poly_buffer.back_ram[i] !== 0)
                     $fatal(1, "RAM nao inicializada em %0d", i);
         end
-        $display("PASS: Icarus quatro estados; dois resets, 156000 ciclos sem X nos pinos/controle e buffers inicializados");
+        $display("PASS: Icarus quatro estados CPU=%0d SHOWCASE=%0d; dois resets, 156000 ciclos sem X nos pinos/controle e buffers inicializados",
+            USE_PROGRAMMABLE_CORE, SHOWCASE);
         $finish;
     end
     initial begin

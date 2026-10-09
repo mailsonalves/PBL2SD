@@ -125,6 +125,16 @@ set_global_assignment -name VERILOG_FILE board_input_controller.v
 set_global_assignment -name VERILOG_FILE cmd_decoder.v
 set_global_assignment -name VERILOG_FILE instruction_memory.v
 set_global_assignment -name VERILOG_FILE active_fetch_controller.v
+set_global_assignment -name VERILOG_FILE gpu_program_core.v
+set_global_assignment -name VERILOG_FILE gpu_register_file.v
+set_global_assignment -name VERILOG_FILE gpu_alu.v
+set_global_assignment -name VERILOG_FILE gpu_status_register.v
+set_global_assignment -name VERILOG_FILE gpu_frame_control.v
+set_global_assignment -name VERILOG_FILE showcase_inputs.v
+set_global_assignment -name HEX_FILE programs/showcase.hex
+set_global_assignment -name HEX_FILE assets/showcase_tiles.hex
+set_global_assignment -name HEX_FILE assets/showcase_tilemap.hex
+set_global_assignment -name HEX_FILE assets/showcase_palette.hex
 set_global_assignment -name HEX_FILE programs/fetch_demo.hex
 set_global_assignment -name HEX_FILE programs/sprites_demo.hex
 set_global_assignment -name HEX_FILE programs/pbl1_validation.hex

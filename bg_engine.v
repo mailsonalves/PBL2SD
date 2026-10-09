@@ -1,4 +1,6 @@
-module bg_engine (
+module bg_engine #(
+    parameter TILEMAP_FILE = "tilemap_data.hex"
+) (
     input  wire        clk,
     input  wire [8:0]  pixel_x,     // 0 a 319
     input  wire [7:0]  pixel_y,     // 0 a 239
@@ -57,7 +59,7 @@ module bg_engine (
     end
 
     // Buffer de Tilemap
-    tilemap_ram u_map_buffer (
+    tilemap_ram #(.TILEMAP_FILE(TILEMAP_FILE)) u_map_buffer (
         .clk_wr    (clk),
         .we        (we),
         .wr_x      (wr_x),

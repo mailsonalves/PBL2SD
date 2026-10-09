@@ -1,4 +1,6 @@
-module pattern_vram (
+module pattern_vram #(
+    parameter PATTERN_FILE = "tiles.hex"
+) (
     input  wire        clk,
     // Porta A (Background)
     input  wire        we_a,
@@ -11,10 +13,12 @@ module pattern_vram (
     output reg  [7:0]  data_out_b
 );
 
+    // Constante em bytes: aceita nomes selecionados por parametros no Icarus.
+    localparam [8*256-1:0] PATTERN_FILE_BYTES = PATTERN_FILE;
     (* ramstyle = "M10K, no_rw_check" *) reg [7:0] ram [0:16383];
 
     initial begin
-        $readmemh("tiles.hex", ram);
+        $readmemh(PATTERN_FILE_BYTES, ram);
     end
 
     always @(posedge clk) begin

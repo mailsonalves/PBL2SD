@@ -23,6 +23,8 @@ module sprite_engine #(
     output reg         busy
 );
 
+    // Constante em bytes: aceita nomes selecionados por parametros no Icarus.
+    localparam [8*256-1:0] PATTERN_FILE_BYTES = PATTERN_FILE;
     reg [31:0] sat_ram [0:31];
     reg [1:0] priority_ram [0:31];
     reg [3:0] palette_bank_ram [0:31];
@@ -30,7 +32,7 @@ module sprite_engine #(
     reg [31:0] cache_valid;
 
     reg [7:0] pattern_rom [0:16383];
-    initial $readmemh(PATTERN_FILE, pattern_rom);
+    initial $readmemh(PATTERN_FILE_BYTES, pattern_rom);
 
     // Leitura sincrona da origem, seguida da escrita no cache selecionado.
     // O ultimo pixel precisa ser escrito antes de liberar busy.

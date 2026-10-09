@@ -65,8 +65,8 @@ a versao efetivamente usada na nova compilacao.
 
 ```bash
 cd /caminho/para/PBL2SD
-bash scripts/synth_quartus.sh
-# Alternativa: usar busca ativa e o programa padrao do top-level.
+bash scripts/synth_quartus.sh --legacy
+# Alternativa: usar busca ativa e o programa historico de nove palavras.
 bash scripts/synth_quartus.sh --active
 # Demonstracao dos recursos PBL1 com o programa de 17 palavras:
 bash scripts/synth_quartus.sh --pbl1
@@ -80,7 +80,9 @@ Os diretorios `db/`, `incremental_db/` e `output_files/` antigos ficam
 preservados. A selecao de modo afeta apenas o QSF da copia isolada.
 `--pbl1` define busca ativa, `PROGRAM_WORDS=17` e
 `PROGRAM_FILE="programs/pbl1_validation.hex"` nessa copia. `--active`
-mantem o programa padrao do top-level, de nove palavras. A preparacao sem
+seleciona `programs/fetch_demo.hex`, de nove palavras. Desde a etapa 4,
+executar o script sem selecionar modo prepara a galeria PBL2; para
+reproduzir a demonstracao antiga por botoes, use `--legacy`. A preparacao sem
 Quartus valida a copia e os parametros; nao executa sintese ou fitting.
 
 O script retorna 127 quando Quartus esta ausente. Nesse caso nenhum

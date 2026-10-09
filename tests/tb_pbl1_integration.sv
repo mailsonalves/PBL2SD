@@ -6,7 +6,8 @@ module tb_pbl1_integration;
     wire [9:0] leds;
     wire hs, vs, blank, sync_n, pixel_clock;
     wire [7:0] red, green, blue;
-    gpu_de1_soc_top #(.USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(17),
+    gpu_de1_soc_top #(.USE_PROGRAMMABLE_CORE(0), .SHOWCASE(0),
+        .USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(17),
         .PROGRAM_FILE("programs/pbl1_validation.hex")) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green), .VGA_B(blue),

@@ -1,8 +1,12 @@
 module gpu_de1_soc_top #(
-    // 0 preserva a demonstracao original; 1 executa o programa interno.
+    // A etapa 4 abre a galeria programavel por padrao, inclusive no Quartus GUI.
+    // CPU=0 seleciona os caminhos historicos conforme USE_ACTIVE_FETCH.
+    parameter USE_PROGRAMMABLE_CORE = 1'b1,
+    parameter SHOWCASE = 1'b1,
     parameter USE_ACTIVE_FETCH = 1'b0,
-    parameter integer PROGRAM_WORDS = 9,
-    parameter PROGRAM_FILE = "programs/fetch_demo.hex"
+    parameter integer PROGRAM_WORDS = 2626,
+    parameter PROGRAM_FILE = "programs/showcase.hex",
+    parameter integer BUTTON_DEBOUNCE_CYCLES = 250000
 ) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
@@ -71,9 +75,39 @@ module gpu_de1_soc_top #(
     wire        buffer_initialized, buffer_front, buffer_double_buffered, buffer_swap_done;
     wire        execution_busy = rast_busy || sprite_busy || buffer_busy;
     wire        program_halted;
+    wire [31:0] processor_status, processor_output;
+    wire [11:0] processor_pc;
+    wire [31:0] processor_ir;
+    wire processor_retired;
+    wire [9:0] processor_switches;
+    wire [2:0] processor_keys;
 
     generate
-        if (USE_ACTIVE_FETCH) begin : gen_active_fetch
+        if (USE_PROGRAMMABLE_CORE) begin : gen_program_core
+            showcase_inputs #(.DEBOUNCE_CYCLES(BUTTON_DEBOUNCE_CYCLES)) u_inputs (
+                .clk(CLOCK_50), .rst_n(rst_n), .switches(SW), .keys_n(KEY[3:1]),
+                .sw_state(processor_switches), .key_state(processor_keys)
+            );
+            gpu_program_core #(
+                .ADDRESS_WIDTH(12), .PROGRAM_WORDS(PROGRAM_WORDS), .PROGRAM_FILE(PROGRAM_FILE)
+            ) u_core (
+                .clk(CLOCK_50), .rst_n(rst_n), .cmd_ready(cmd_ready),
+                .execution_busy(execution_busy), .cmd_error(cmd_error),
+                .frame_boundary(frame_boundary), .sw_state(processor_switches),
+                .key_state(processor_keys), .buffer_initialized(buffer_initialized),
+                .buffer_front(buffer_front), .buffer_double_buffered(buffer_double_buffered),
+                .cmd_data(cmd_data), .cmd_valid(cmd_valid), .halted(program_halted),
+                .pc(processor_pc), .ir(processor_ir), .status(processor_status),
+                .user_output(processor_output), .retired(processor_retired)
+            );
+        end else if (USE_ACTIVE_FETCH) begin : gen_active_fetch
+            assign processor_status = 0;
+            assign processor_output = 0;
+            assign processor_pc = 0;
+            assign processor_ir = 0;
+            assign processor_retired = 0;
+            assign processor_switches = 0;
+            assign processor_keys = 0;
             active_fetch_controller #(
                 .PROGRAM_WORDS(PROGRAM_WORDS),
                 .PROGRAM_FILE(PROGRAM_FILE)
@@ -89,6 +123,13 @@ module gpu_de1_soc_top #(
                 .ir()
             );
         end else begin : gen_board_demo
+            assign processor_status = 0;
+            assign processor_output = 0;
+            assign processor_pc = 0;
+            assign processor_ir = 0;
+            assign processor_retired = 0;
+            assign processor_switches = 0;
+            assign processor_keys = 0;
             assign program_halted = 1'b0;
             board_input_controller u_input_ctrl (
                 .clk(CLOCK_50),
@@ -171,7 +212,7 @@ module gpu_de1_soc_top #(
     // 5. Motor de Background
     wire [13:0] bg_vram_addr;
 
-    bg_engine u_bg_engine (
+    bg_engine #(.TILEMAP_FILE(SHOWCASE ? "assets/showcase_tilemap.hex" : "tilemap_data.hex")) u_bg_engine (
         .clk               (CLOCK_50),
         .pixel_x           (pixel_x),
         .pixel_y           (pixel_y),
@@ -188,7 +229,7 @@ module gpu_de1_soc_top #(
     wire [13:0] sp_vram_addr;
     wire [7:0] sp_pixel;
 
-    sprite_engine u_sprite_engine (
+    sprite_engine #(.PATTERN_FILE(SHOWCASE ? "assets/showcase_tiles.hex" : "tiles.hex")) u_sprite_engine (
         .clk               (CLOCK_50),
         .rst_n             (rst_n),
         .pixel_x           (pixel_x),
@@ -211,7 +252,7 @@ module gpu_de1_soc_top #(
     wire [7:0] bg_pixel;
     wire [7:0] pattern_debug_pixel;
 
-    pattern_vram u_patterns (
+    pattern_vram #(.PATTERN_FILE(SHOWCASE ? "assets/showcase_tiles.hex" : "tiles.hex")) u_patterns (
         .clk        (CLOCK_50),
         .we_a       (1'b0),
         .addr_a     (bg_vram_addr),
@@ -301,7 +342,7 @@ module gpu_de1_soc_top #(
     // 8. Paleta de Cores e Saida VGA
     wire [23:0] rgb_24;
 
-    color_palette u_palette (
+    color_palette #(.PALETTE_FILE(SHOWCASE ? "assets/showcase_palette.hex" : "palette.hex")) u_palette (
         .clk    (CLOCK_50),
         .we     (pal_we),
         .wr_addr(pal_addr),
@@ -318,15 +359,15 @@ module gpu_de1_soc_top #(
     assign VGA_G = output_active ? rgb_24[15:8]  : 8'd0;
     assign VGA_B = output_active ? rgb_24[7:0]   : 8'd0;
 
-    assign LEDR[0] = execution_busy;
-    assign LEDR[1] = cmd_valid;
-    assign LEDR[2] = SW[0];
+    assign LEDR[0] = USE_PROGRAMMABLE_CORE ? processor_output[0] : execution_busy;
+    assign LEDR[1] = USE_PROGRAMMABLE_CORE ? processor_output[1] : cmd_valid;
+    assign LEDR[2] = USE_PROGRAMMABLE_CORE ? processor_output[2] : SW[0];
     assign LEDR[3] = program_halted;
-    assign LEDR[4] = error_seen;
+    assign LEDR[4] = USE_PROGRAMMABLE_CORE ? processor_status[4] : error_seen;
     assign LEDR[5] = buffer_initialized;
     assign LEDR[6] = buffer_front;
     assign LEDR[7] = buffer_double_buffered;
-    assign LEDR[8] = sprite_busy;
+    assign LEDR[8] = USE_PROGRAMMABLE_CORE ? execution_busy : sprite_busy;
     assign LEDR[9] = rst_n;
 
 endmodule

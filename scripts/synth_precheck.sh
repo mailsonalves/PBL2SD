@@ -4,14 +4,21 @@
 set -euo pipefail
 
 usage() {
-    echo "Uso: bash scripts/synth_precheck.sh [--active] [--structure-only]"
-    echo "Padrao: estrutura, RAM e mapeamento preliminar Cyclone V."
+    echo "Uso: bash scripts/synth_precheck.sh [--showcase | --pbl2 | --legacy | --active | --pbl1] [--structure-only]"
+    echo "Padrao/--showcase/--pbl2: galeria programavel, estrutura e mapeamento preliminar Cyclone V."
+    echo "--legacy: botoes antigos; --active: busca antiga; --pbl1: demonstracao PBL1."
 }
-active=0
+mode=showcase
+mode_selected=0
 structure_only=0
 for argument in "$@"; do
     case "$argument" in
-        --active) active=1 ;;
+        --showcase|--pbl2|--legacy|--active|--pbl1)
+            if (( mode_selected )); then usage >&2; exit 2; fi
+            mode_selected=1
+            mode=${argument#--}
+            if [[ "$mode" == pbl2 ]]; then mode=showcase; fi
+            ;;
         --structure-only) structure_only=1 ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -26,10 +33,45 @@ done
 
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
+core=0
+showcase=0
+active=0
+program_file=programs/fetch_demo.hex
+case "$mode" in
+    showcase)
+        core=1
+        showcase=1
+        program_file=programs/showcase.hex
+        python3 scripts/assemble.py programs/showcase.asm --check
+        python3 scripts/generate_showcase_assets.py --check
+        ;;
+    active) active=1 ;;
+    pbl1) active=1; program_file=programs/pbl1_validation.hex ;;
+    legacy) ;;
+esac
+program_words=$(python3 - "$program_file" <<'PYTHON'
+import pathlib
+import re
+import sys
+
+words = pathlib.Path(sys.argv[1]).read_text().split()
+if not 1 <= len(words) <= 4096 or any(not re.fullmatch(r'[0-9a-fA-F]{8}', word) for word in words):
+    raise SystemExit('Programa deve conter de 1 a 4096 palavras hexadecimais de 32 bits.')
+print(len(words))
+PYTHON
+)
 mkdir -p .build/synth
 run_dir=$(mktemp -d .build/synth/run.XXXXXX)
-echo "Precheck preliminar: $run_dir (USE_ACTIVE_FETCH=$active)"
+echo "Precheck preliminar: $run_dir (modo=$mode, core=$core, showcase=$showcase, $program_words palavras)"
 yosys -V > "$run_dir/version.txt"
+cat > "$run_dir/mode.txt" <<MODE
+mode=$mode
+USE_PROGRAMMABLE_CORE=$core
+SHOWCASE=$showcase
+USE_ACTIVE_FETCH=$active
+PROGRAM_WORDS=$program_words
+PROGRAM_FILE=$program_file
+MODE
 
 run_yosys() {
     local stage="$1"
@@ -42,7 +84,7 @@ run_yosys() {
 
 cat > "$run_dir/structure.ys" <<YOSYS
 read_verilog -sv *.v
-chparam -set USE_ACTIVE_FETCH $active gpu_de1_soc_top
+chparam -set USE_PROGRAMMABLE_CORE $core -set SHOWCASE $showcase -set USE_ACTIVE_FETCH $active -set PROGRAM_WORDS $program_words -set PROGRAM_FILE "$program_file" gpu_de1_soc_top
 hierarchy -check -top gpu_de1_soc_top
 proc
 opt

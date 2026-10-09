@@ -26,9 +26,21 @@ if {[get_collection_size $first_key_sync] > 0} {
     set_false_path -from [get_ports {KEY[1] KEY[2] KEY[3]}] -to $first_key_sync
 }
 
-# SW atualmente participa somente de indicacao por LED (sem receptor
-# sincrono externo). Rever caso as chaves sejam usadas por novo datapath.
-set_false_path -from [get_ports {SW[*]}]
+# Galeria programavel: excluir somente o primeiro FF que recebe o botao,
+# mantendo os caminhos de sincronizacao e debounce sob analise.
+set showcase_key_meta [get_registers {*|key_meta[*]}]
+if {[get_collection_size $showcase_key_meta] > 0} {
+    set_false_path -from [get_ports {KEY[1] KEY[2] KEY[3]}] -to $showcase_key_meta
+}
+
+# Chaves da galeria entram em duas etapas. Na demonstracao historica elas
+# participam somente da indicacao por LED.
+set showcase_switch_meta [get_registers {*|sw_meta[*]}]
+if {[get_collection_size $showcase_switch_meta] > 0} {
+    set_false_path -from [get_ports {SW[*]}] -to $showcase_switch_meta
+} else {
+    set_false_path -from [get_ports {SW[*]}]
+}
 set_false_path -to [get_ports {LEDR[*]}]
 
 # RESTRICOES EXTERNAS PROVISORIAS: analisar os caminhos de saida sem

@@ -1,0 +1,103 @@
+20000063 // 0 LDI R0,99 (ignored)
+2010007B // 1 LDI R1,123
+20200003 // 2 LDI R2,3
+20300000 // 3 LDI R3,0
+21332000 // 4 ADD R3,R3,R2
+2A22FFFF // 5 ADDI R2,R2,-1
+28020000 // 6 CMP R2,R0
+E3000004 // 7 BNE loop
+E6300000 // 8 OUT R3=6
+2C400000 // 9 STATUS R4
+E6400000 // 10 OUT R4 flags Z+C
+2E508000 // 11 LUI R5,8000
+20600001 // 12 LDI R6,1
+22756000 // 13 SUB R7,R5,R6, signed overflow
+E4000011 // 14 BLT 17, N XOR V=1
+20F00111 // 15 unexpected
+E6F00000 // 16 unexpected OUT
+E5000014 // 17 BGE 20, false
+20F00022 // 18 LDI R15,22
+E6F00000 // 19 OUT 22
+28066000 // 20 CMP R6,R6
+E2000018 // 21 BEQ 24
+20F00222 // 22 unexpected
+E6F00000 // 23 unexpected OUT
+E300001B // 24 BNE 27 false
+20F00044 // 25 LDI R15,44
+E6F00000 // 26 OUT 44
+E100001E // 27 JMP 30
+20F00333 // 28 unexpected
+E6F00000 // 29 unexpected OUT
+2B800000 // 30 IN R8,SW
+E6800000 // 31 OUT SW
+2B810000 // 32 IN R8,KEY
+E6800000 // 33 OUT KEY
+2B920000 // 34 IN R9,framecount beforeWAIT
+E6900000 // 35 OUT framecount=2
+2EA05000 // 36 LUI R10,5000
+2FAA0A14 // 37 ORI R10,R10,A14
+4A000000 // 38 CMD R10, first command
+10000001 // 39 PALETTE literal, second command
+E6A00000 // 40 OUT computed command
+2EA0F000 // 41 LUI R10,F000
+4A000000 // 42 CMD R10 sends F0000000 as graphics, never CPU HALT
+2D000000 // 43 CLRE graphics error
+E0000000 // 44 WAIT_FRAME
+2B920000 // 45 IN R9,framecount afterWAIT
+E6900000 // 46 OUT framecount=4
+2C400000 // 47 STATUS R4
+E6400000 // 48 OUT status flags0
+21110001 // 49 invalid ADD reserved bits
+2D000000 // 50 Clear error before testing next rejection independently
+29112000 // 51 invalid MOV rt
+2D000000 // 52 CLRE
+28112000 // 53 invalid CMP rd
+2D000000 // 54 CLRE
+2B130000 // 55 invalid IN port3
+2D000000 // 56 CLRE
+2C100001 // 57 invalid STATUS reserved
+2D000000 // 58 CLRE
+2E110000 // 59 invalid LUI reserved
+2D000000 // 60 CLRE
+2D000001 // 61 invalid CLRE reserved
+2D000000 // 62 CLRE
+41100000 // 63 invalid CMD reserved
+2D000000 // 64 CLRE
+E6110000 // 65 invalid OUT port
+2D000000 // 66 CLRE
+E0000001 // 67 invalid WAIT reserved
+2D000000 // 68 CLRE
+E1010001 // 69 invalid JMP highbits
+2D000000 // 70 CLRE
+E100FFFF // 71 invalid JMP target
+2D000000 // 72 CLRE
+E200FFFF // 73 invalid BEQ target even nottaken
+2D000000 // 74 CLRE
+E7000000 // 75 invalid control subop
+2D000000 // 76 CLRE
+F0000001 // 77 invalid HALT reserved
+E6100000 // 78 OUT R1 still123
+2C400000 // 79 STATUS R4 error
+E6400000 // 80 OUT status error
+2D000000 // 81 CLRE, simultaneous cmd_error wins
+2C400000 // 82 STATUS R4 stillerror
+E6400000 // 83 OUT status error
+2D000000 // 84 CLRE without error
+2C400000 // 85 STATUS R4 clean
+E6400000 // 86 OUT status clean
+200FFFFF // 87 LDI R0 ignored
+29800000 // 88 MOV R8,R0
+E6800000 // 89 OUT zero
+22066000 // 90 SUB R0,R6,R6 updates flags despite discarded result
+2C400000 // 91 STATUS R4 flagsZ+C
+E6400000 // 92 OUT status
+28060000 // 93 CMP R6,R0 flagsC
+E4000062 // 94 BLT 98 false
+E2000062 // 95 BEQ 98 false
+E5000064 // 96 BGE 100 true
+E1000062 // 97 JMP failure if BGE fails to take
+20F00BAD // 98 unexpected signature
+E6F00000 // 99 unexpected OUT
+20F00088 // 100 correct branch signature
+E6F00000 // 101 OUT 88
+F0000000 // 102 HALT

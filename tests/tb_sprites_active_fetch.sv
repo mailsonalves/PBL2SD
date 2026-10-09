@@ -9,6 +9,7 @@ module tb_sprites_active_fetch;
     wire [7:0] red, green, blue;
 
     gpu_de1_soc_top #(
+        .USE_PROGRAMMABLE_CORE(0), .SHOWCASE(0),
         .USE_ACTIVE_FETCH(1),
         .PROGRAM_WORDS(12),
         .PROGRAM_FILE("programs/sprites_demo.hex")

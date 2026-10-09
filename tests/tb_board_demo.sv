@@ -9,8 +9,8 @@ module tb_board_demo;
     wire [7:0] red, green, blue;
     integer accepted = 0;
 
-    // Sem parametro: o caminho original por botoes deve continuar selecionado.
-    gpu_de1_soc_top dut (
+    // A etapa 4 seleciona explicitamente o caminho historico por botoes.
+    gpu_de1_soc_top #(.USE_PROGRAMMABLE_CORE(0), .SHOWCASE(0)) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green),
         .VGA_B(blue), .VGA_BLANK_N(blank), .VGA_SYNC_N(sync_n),
