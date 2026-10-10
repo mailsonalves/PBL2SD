@@ -153,6 +153,7 @@ set_global_assignment -name VERILOG_FILE gpu_alu.v
 set_global_assignment -name VERILOG_FILE gpu_register_file.v
 set_global_assignment -name VERILOG_FILE gpu_instruction_decoder.v
 set_global_assignment -name VERILOG_FILE gpu_datapath.v
+set_global_assignment -name HEX_FILE programs/background_motion.hex
 set_global_assignment -name HEX_FILE programs/background_sprites.hex
 set_global_assignment -name HEX_FILE programs/polygons_motion.hex
 set_global_assignment -name HEX_FILE programs/program_a.hex

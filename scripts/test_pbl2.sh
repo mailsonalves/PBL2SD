@@ -9,7 +9,7 @@ for executable in verilator iverilog vvp python3 cc g++ make; do
 done
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 # Compara a fonte Assembly com o HEX publicado sem sobrescrever programas.
-for program in background_sprites polygons_motion program_a program_b; do
+for program in background_motion background_sprites polygons_motion program_a program_b; do
     python3 tools/assemble.py "programs/$program.asm" -o "$build_dir/$program.hex" --words 256
     cmp "programs/$program.hex" "$build_dir/$program.hex"
 done
@@ -46,5 +46,10 @@ run_test tb_pbl2_programs
 run_test tb_pbl2_control
 run_test tb_pbl2_upload
 run_test tb_polygon_random
+run_test tb_palette_collision
+iverilog -g2012 -s tb_palette_collision -o "$build_dir/tb_palette_collision.vvp" \
+    color_palette.v tests/tb_palette_collision.sv
+vvp "$build_dir/tb_palette_collision.vvp"
+run_test tb_background_motion
 # Regressoes graficas completas e inicializacao em quatro estados.
 bash "$repo_dir/scripts/test_step3.sh"

@@ -115,8 +115,9 @@ static int wait_ready(volatile uint32_t *regs, uint64_t timeout, int loading)
 
 static void usage(const char *name)
 {
-    fprintf(stderr, "Uso: %s --check arquivo.hex\n"
-            "     %s --base ENDERECO_FISICO --program arquivo.hex [--timeout-ms 10000]\n"
+    fprintf(stderr, "Uso: %s --check arquivo.hex [--no-wait]\n"
+            "     %s --base ENDERECO_FISICO --program arquivo.hex [--timeout-ms 10000] [--no-wait]\n"
+            "--no-wait carrega, confere e inicia sem aguardar HALT (para programas continuos).\n"
             "A base deve vir do mapa real Platform Designer + configuracao HPS/Linux.\n",
             name, name);
 }
@@ -125,10 +126,11 @@ int main(int argc, char **argv)
 {
     const char *program = NULL;
     uint64_t base = 0, timeout = 10000;
-    int have_base = 0, check = 0;
+    int have_base = 0, check = 0, no_wait = 0;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--check") && i + 1 < argc) { check = 1; program = argv[++i]; }
         else if (!strcmp(argv[i], "--program") && i + 1 < argc) program = argv[++i];
+        else if (!strcmp(argv[i], "--no-wait")) no_wait = 1;
         else if (!strcmp(argv[i], "--base") && i + 1 < argc) {
             if (parse_number(argv[++i], &base)) { usage(argv[0]); return 2; }
             have_base = 1;
@@ -184,9 +186,21 @@ int main(int argc, char **argv)
     }
     printf("%u instrucoes carregadas e conferidas\n", count);
     write_reg(regs, CONTROL, 2); // Sair da carga e executar a partir de PC0.
-    if (wait_ready(regs, timeout, 0)) goto done;
-    printf("HALT confirmado: PC=%" PRIu32 " STATUS=%08" PRIx32 "\n",
-           read_reg(regs, PC), read_reg(regs, STATUS));
+    if (no_wait) {
+        uint32_t status = read_reg(regs, STATUS);
+        uint32_t current_pc = read_reg(regs, PC);
+        if (status & 8u) {
+            fprintf(stderr, "Erro FPGA ao iniciar: status=%08" PRIx32 " PC=%" PRIu32 " IR=%08" PRIx32 "\n",
+                    status, current_pc, read_reg(regs, IR));
+            goto done;
+        }
+        printf("Execucao iniciada sem aguardar HALT: PC=%" PRIu32 " STATUS=%08" PRIx32 "\n",
+               current_pc, status);
+    } else {
+        if (wait_ready(regs, timeout, 0)) goto done;
+        printf("HALT confirmado: PC=%" PRIu32 " STATUS=%08" PRIx32 "\n",
+               read_reg(regs, PC), read_reg(regs, STATUS));
+    }
     result = 0;
 done:
     munmap(mapping, map_length);

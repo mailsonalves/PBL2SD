@@ -1,0 +1,38 @@
+{
+  "repository": "https://github.com/fpgacademy/Design_Examples",
+  "commit": "13010c09f4863447994f0435fef80e162a40d24b",
+  "license": "MIT",
+  "sources": [
+    {
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/fpgacademy/Design_Examples/13010c09f4863447994f0435fef80e162a40d24b/LICENSE",
+      "sha256": "f7ad09565c84fe2cabfb2c3234498af3a6b4776c9845d2d721bdb62f71d6aa1b",
+      "bytes": 1067
+    },
+    {
+      "file": "common.tcl",
+      "url": "https://raw.githubusercontent.com/fpgacademy/Design_Examples/13010c09f4863447994f0435fef80e162a40d24b/Computer_Systems/common/scripts/common.tcl",
+      "sha256": "3081131cdb633bd21d3019f9bc58f4a81a1cf4e116609765c4fafa2c372442dd",
+      "bytes": 47191
+    },
+    {
+      "file": "de1_hps_board.tcl",
+      "url": "https://raw.githubusercontent.com/fpgacademy/Design_Examples/13010c09f4863447994f0435fef80e162a40d24b/Computer_Systems/DE1-SoC/scripts/gen_arm_niosii_computer_system.tcl",
+      "sha256": "211d18807becb5f32068700a47b9f1da554329091e89f2408e700a7cc0284c50",
+      "bytes": 6660
+    },
+    {
+      "file": "DE1_SoC_ARM_NiosII_Computer.v",
+      "url": "https://raw.githubusercontent.com/fpgacademy/Design_Examples/13010c09f4863447994f0435fef80e162a40d24b/Computer_Systems/DE1-SoC/src/DE1_SoC_ARM_NiosII_Computer/DE1_SoC_ARM_NiosII_Computer.v",
+      "sha256": "e65ada712d7112485b3fca7814322aa5c350c70ac73573dff9deaef12ba71577",
+      "bytes": 12451
+    },
+    {
+      "file": "DE1_SoC_ARM_NiosII_Computer.qsf",
+      "url": "https://raw.githubusercontent.com/fpgacademy/Design_Examples/13010c09f4863447994f0435fef80e162a40d24b/Computer_Systems/DE1-SoC/src/DE1_SoC_ARM_NiosII_Computer/DE1_SoC_ARM_NiosII_Computer.qsf",
+      "sha256": "d81922fc46406f35689e1b711ea45e23da0adab4f5e7d6a46195607e09c82313",
+      "bytes": 62103
+    }
+  ],
+  "adaptation": "Somente parametros HPS comuns e da DE1-SoC, portas/ligacoes HPS e constraints de IO HPS. Clocks FPGA e da ponte usam50MHz; Nios/perifericos FPGA nao foram importados. Targets dos constraints protegidos com braces Tcl; removida atribuicao orfa HPS_LTC_GPIO (os pinos HPS_GPIO[0:1] ja possuem IO_STANDARD)."
+}

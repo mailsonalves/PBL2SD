@@ -2,7 +2,7 @@
 // O endereco e em bytes. Bridge HPS, clocks e pinos pertencem ao sistema externo.
 module gpu_avalon #(
     parameter integer PROGRAM_WORDS = 256,
-    parameter PROGRAM_FILE = "programs/background_sprites.hex"
+    parameter PROGRAM_FILE = "programs/background_motion.hex"
 ) (
     input  wire        clk,
     input  wire        reset_n,

@@ -15,7 +15,7 @@ module tb_pbl2_upload;
     wire [9:0] leds;
     wire hs, vs, blank, sync_n, pixel_clock;
     wire [7:0] red, green, blue;
-    gpu_core #(.PROGRAM_WORDS(256)) dut (
+    gpu_core #(.PROGRAM_WORDS(256), .PROGRAM_FILE("programs/background_sprites.hex")) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green), .VGA_B(blue),
         .VGA_BLANK_N(blank), .VGA_SYNC_N(sync_n), .VGA_CLK(pixel_clock),

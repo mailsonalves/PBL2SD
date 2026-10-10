@@ -2,7 +2,7 @@ module gpu_core #(
     // Busca ativa principal; modo 0 conserva a demonstracao historica.
     parameter USE_ACTIVE_FETCH = 1'b1,
     parameter integer PROGRAM_WORDS = 256,
-    parameter PROGRAM_FILE = "programs/background_sprites.hex"
+    parameter PROGRAM_FILE = "programs/background_motion.hex"
 ) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,

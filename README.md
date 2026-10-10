@@ -103,6 +103,7 @@ O montador requer **Python 3.10+**, sem pacotes externos. Aceita inteiros decima
 ```bash
 cd /workspace/PBL2SD
 python3 tools/assemble.py programs/background_sprites.asm
+python3 tools/assemble.py programs/background_motion.asm
 python3 tools/assemble.py programs/polygons_motion.asm
 python3 tools/assemble.py programs/program_a.asm
 python3 tools/assemble.py programs/program_b.asm
@@ -114,16 +115,17 @@ Cada HEX contém uma palavra de 32 bits por linha. Execute simulações a partir
 
 | Programa | Demonstração | Resultado final |
 |---|---|---|
+| [background_motion.asm](programs/background_motion.asm) / [HEX](programs/background_motion.hex) | Demonstração contínua: background, triângulo e duas sprites, sem alterar a paleta compartilhada. | Scroll avança um pixel lógico por quadro e volta de 319 a 0; não termina em HALT. |
 | [background_sprites.asm](programs/background_sprites.asm) / [HEX](programs/background_sprites.hex) | Tilemap, scroll calculado pela ULA, sprites 1/2/3/31, quatro combinações de flips, prioridade e banco de paleta. | Scroll X=32; sprites 1/2 em X=104/110; 3/31 fixos. Cada iteração aguarda WAIT_FRAME. |
 | [polygons_motion.asm](programs/polygons_motion.asm) / [HEX](programs/polygons_motion.hex) | Triângulos vermelho/ciano, retângulo amarelo, sprites e deslocamento calculado em registradores; buffer duplo. | Triângulo vermelho em (56,48), (120,48), (88,100); sprite 1 em (232,96). Cada iteração usa WAIT_FRAME e PRESENT. |
 | [program_a.asm](programs/program_a.asm) / [HEX](programs/program_a.hex) | Triângulo e duas sprites; 45 instruções. | 2.461 pixels de polígono, sprites 1/2 sem espelhamento; HALT em PC44. |
 | [program_b.asm](programs/program_b.asm) / [HEX](programs/program_b.hex) | Retângulo e duas sprites em outras posições, com espelhamento H/V; 48 instruções. | 3.969 pixels de polígono; HALT em PC47. |
 
-Todos terminam em HALT e mantêm a última imagem. As duas demonstrações de movimento usam quatro iterações; A/B são cenas estáticas que inicializam seu estado e desabilitam sprites anteriores. RECT exige área positiva (`x0<x1`, `y0<y1`) com cantos inclusivos. RECTR com largura/altura zero produz primitivas degeneradas sem pixels.
+`background_motion` executa continuamente. Os outros quatro programas terminam em HALT e mantêm a última imagem. As demonstrações antigas de movimento usam apenas quatro iterações, aproximadamente 67 ms: por isso o background parecia parado após a programação da placa. A/B são cenas estáticas que inicializam seu estado e desabilitam sprites anteriores. RECT exige área positiva (`x0<x1`, `y0<y1`) com cantos inclusivos. RECTR com largura/altura zero produz primitivas degeneradas sem pixels.
 
-O top usa **`USE_ACTIVE_FETCH=1`, `PROGRAM_WORDS=256` e `PROGRAM_FILE="programs/background_sprites.hex"`** por padrão. Os quatro HEX têm 256 palavras. `PROGRAM_FILE` seleciona apenas o programa inicial da configuração FPGA; depois da integração HPS, MMIO substitui as instruções sem alterar ou recompilar Verilog. A troca A→B no mesmo núcleo é verificada por `tb_pbl2_upload`. Botões/chaves não selecionam operações no modo principal.
+O top usa **`USE_ACTIVE_FETCH=1`, `PROGRAM_WORDS=256` e `PROGRAM_FILE="programs/background_motion.hex"`** por padrão. Os cinco HEX têm 256 palavras. `PROGRAM_FILE` seleciona apenas o programa inicial da configuração FPGA; depois da integração HPS, MMIO substitui as instruções sem alterar ou recompilar Verilog. A troca A→B no mesmo núcleo é verificada por `tb_pbl2_upload`. Botões/chaves não selecionam operações no modo principal.
 
-A [investigação da renderização](docs/pbl2-render-review.md) explica a fotografia, a CLUT compartilhada e os testes adicionais. O HEX padrão não desenha polígonos; use A/B ou `polygons_motion.hex` para essa verificação.
+A [investigação da renderização](docs/pbl2-render-review.md) explica a fotografia, a CLUT compartilhada e os testes adicionais. O novo padrão inclui um triângulo e duas sprites; os programas anteriores permanecem disponíveis para comparação.
 
 KEY[0] permanece reset; os demais botões não controlam a execução no modo principal. O modo histórico pode ser compilado com USE_ACTIVE_FETCH=0. LEDR[3] indica HALT, [4] erro persistente, [5] buffers inicializados, [6] buffer frontal, [7] buffer duplo e [8] sprite busy.
 
@@ -145,6 +147,7 @@ bash scripts/synth_precheck.sh
 | `test_assembler.py` | Codificação, labels, pseudoinstruções, erros de operandos/limites. |
 | `test_quartus_setup.py` | Preparação dos projetos, seleção do HEX e carregamento das ROMs nas cópias de compilação. |
 | `test_hps_client.py` | Compilação C com warnings tratados como erro, validação dos HEX e rejeição de base ausente/inválida. |
+| `test_hps_project.py` | Cópia HPS independente, parâmetros/clock/reset/endereço Tcl, constraints e elaboração do top com interface substituta. |
 | `tb_gpu_cpu_units` | Banco, ULA, flags, decoder e conversão gráfica. |
 | `tb_gpu_cpu_control` | Busca, PC/IR, branches, esperas, HALT, erros, pausa e reinício. |
 | `tb_gpu_mmio` | Mapa, byteenables, pulsos, RO, offsets inválidos, contador e reset. |
@@ -154,6 +157,8 @@ bash scripts/synth_precheck.sh
 | `tb_gpu_avalon_reset` | Leitura/escrita pendentes durante liberação de reset e KEY, aceitas exatamente uma vez. |
 | `tb_pbl2_upload` | A→B por MMIO em uma GPU, readback, quadros VGA independentes e persistência após reset. |
 | `tb_polygon_random` | 100 triângulos e 4.352 vetores da ULA: winding, recorte, extremos, degenerados e captura durante busy. |
+| `tb_background_motion` | Movimento contínuo por quadros VGA reais, wrap de scroll e RGB amostrado no clock externo. |
+| `tb_palette_collision` | Leitura/escrita simultânea da mesma cor, inclusive RAM indefinida em colisão. |
 | `test_step3.sh` | 32 sprites/flips/prioridades/transparência, paleta, background, memórias, rasterização, buffers e inicialização em quatro estados. |
 
 ```bash
@@ -164,14 +169,18 @@ bash scripts/synth_precheck.sh --board
 bash scripts/synth_precheck.sh --mmio
 ```
 
-**Resultados observados:** a suíte completa terminou com código 0: **17 testes Python e 28 testbenches RTL distintos passaram** (11 do PBL2 e 17 regressões). As demos e a troca A→B foram verificadas com referências independentes de pixels e sincronismo, incluindo quadros completos após HALT. O precheck Cyclone V passou nos modos principal/histórico/Avalon, com 220/219/235 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
+**Resultados observados:** **35 testes Python e 30 testbenches RTL distintos passaram** (13 do PBL2 e 17 regressões). A execução RTL completa terminou com código 0; os testes adicionais de preparação HPS passaram separadamente. O movimento contínuo foi conferido em 321 quadros VGA, com wrap 319→0→1 e 206.080 amostras RGB. O precheck Avalon atual manteve 235 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
 
 ## Compilar no Quartus e validar na placa
+
+Para criar a ponte com o ARM usando o projeto minimo preparado, siga
+[HPS minimo para a DE1-SoC](docs/hps-minimo.md). O HPS carrega e inicia
+programas; ele nao e necessario para testar o HEX inicial no VGA.
 
 Use Quartus Prime com suporte Cyclone V e quartus_sh no PATH. O projeto inclui dispositivo 5CSEMA5F31C6, pinos DE1-SoC e gpu.sdc com clocks de 20/40 ns. Confirme revisão da placa e restrições externas VGA antes da validação física.
 
 ```bash
-# Principal: background/sprites, 256 palavras:
+# Principal: movimento contínuo, triângulo e sprites, 256 palavras:
 bash scripts/synth_quartus.sh
 # Outro programa, sem alterar RTL:
 bash scripts/synth_quartus.sh --program programs/polygons_motion.hex

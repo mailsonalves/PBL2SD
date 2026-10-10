@@ -57,18 +57,19 @@ endmodule
     def test_project_default_loads_hex_without_qsf_string_override(self):
         self.assertNotRegex((REPO / 'gpu.qsf').read_text(),
                             r'set_parameter\s+-name\s+"?PROGRAM_FILE')
-        self.simulate_rom(REPO, 'programs/background_sprites.hex', 256)
+        self.simulate_rom(REPO, 'programs/background_motion.hex', 256)
 
     def test_generated_projects_load_each_selected_hex(self):
         originals = {name: (REPO / name).read_bytes()
                      for name in ('gpu.qsf', 'gpu_de1_soc_top.v', 'gpu_core.v')}
-        cases = [([], 'programs/background_sprites.hex', 256, 1),
+        cases = [([], 'programs/background_motion.hex', 256, 1),
+                 (['--program', 'programs/background_sprites.hex'], 'programs/background_sprites.hex', 256, 1),
                  (['--program', 'programs/polygons_motion.hex'], 'programs/polygons_motion.hex', 256, 1),
                  (['--program', 'programs/program_a.hex'], 'programs/program_a.hex', 256, 1),
                  (['--program', 'programs/program_b.hex'], 'programs/program_b.hex', 256, 1),
                  (['--active'], 'programs/fetch_demo.hex', 9, 1),
                  (['--pbl1'], 'programs/pbl1_validation.hex', 17, 1),
-                 (['--board'], 'programs/background_sprites.hex', 256, 0)]
+                 (['--board'], 'programs/background_motion.hex', 256, 0)]
         for options, program, words, active in cases:
             with self.subTest(options=options):
                 result = subprocess.run(['bash', 'scripts/synth_quartus.sh', *options,

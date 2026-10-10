@@ -30,18 +30,22 @@ em `.build/`, caminho ignorado pelo Git. A montagem na suíte escreve cópias em
 ## Resultados observados
 
 A execução completa de `scripts/test_pbl2.sh` terminou com código **0**.
-Foram executados 17 testes Python e 28 testbenches RTL distintos: onze
+Foram executados 21 testes Python nessa rodada e 30 testbenches RTL distintos: treze
 para o PBL2 e os 17 existentes do PBL1. Os testes de unidades CPU, controle CPU
 e MMIO, assim como os novos testes de RAM/carga CPU/carga MMIO/reset Avalon,
 foram executados com ambos Verilator e Icarus; o teste de inicialização VGA
 usa Icarus. O teste aleatório do rasterizador também passou em execução
 adicional Icarus. Nenhum desses alvos foi omitido ou desabilitado.
 
+Depois de concluir o gerador HPS, a descoberta Python final passou **35 testes**:
+os 21 anteriores e 14 testes adicionais de preparação/integração HPS.
+
 | Alvo | Evidência e resultado |
 |---|---|
 | Montador, 12 testes | Encodings de referência, labels, limites, instruções inválidas, pseudo-instruções, erros com linha e reprodução dos dois HEX; PASS. |
 | Preparação Quartus, 2 testes Python | Projeto padrão e cópias de todos os modos; seleção do caminho e carregamento completo das ROMs com Icarus, sem palavras indefinidas; PASS. |
-| Cliente HPS, 3 testes Python | Compilação C nativa com -Wall/-Wextra/-Werror, quatro HEX publicados, entradas inválidas e exigência de base explícita antes de acessar /dev/mem; PASS. Execução Linux ARM não foi testada. |
+| Cliente HPS, 7 testes Python | Compilação C nativa com -Wall/-Wextra/-Werror, cinco HEX publicados, --no-wait para programas contínuos, entradas inválidas e exigência de base explícita antes de acessar /dev/mem; PASS. Execução Linux ARM não foi testada. |
+| Preparação HPS, 14 testes Python | Cópia independente/sem sobrescrita, assets, três componentes/clock/ponte/base/resets Tcl, 312 constraints com alvos/índices válidos e top contra contrato de portas; PASS. Não executa geração Qsys nativa. |
 | `tb_gpu_cpu_units` | ULA com 600 vetores ADD/SUB/CMP e limites de carry/overflow; três portas de leitura do banco, r0, reset/restart, gráficos por registradores e campos reservados; PASS nos dois simuladores. |
 | `tb_gpu_cpu_control` | Programa com operações da ULA, desvios tomados/não tomados, STATUS, inválidas sem efeitos, espera de quadro, pausa, erro simultâneo a clear e drenagem no restart; PASS nos dois simuladores. |
 | `tb_gpu_mmio` | 64 offsets, desalinhamento, registros RO, byteenables, pulsos de controle, contador e reset; PASS nos dois simuladores. |
@@ -54,6 +58,8 @@ adicional Icarus. Nenhum desses alvos foi omitido ou desabilitado.
 | `tb_gpu_avalon_reset` | Transações pendentes na liberação de reset externo/KEY aguardam dois clocks internos; leitura/escrita aceita exatamente uma vez, sem perder CONTROL; PASS nos dois simuladores. |
 | `tb_pbl2_upload` | Uma GPU, A→B somente por MMIO, 768 readbacks/769 ciclos de espera, drain completo do CLEAR anterior, comprimento curto e reset preservando B/carga; 840.000 ciclos VGA por programa, RGB/HS/VS/blank contra contador independente; PASS. |
 | `tb_polygon_random` | Seed 9E3779B9: 100 triângulos, 652.433 escritas e 4.352 vetores de ULA; máscaras independentes, winding/permutação, limites, degenerados, recorte e mudança de entradas durante busy; PASS em Verilator e em execução adicional Icarus. |
+| `tb_palette_collision` | 1.106 leituras síncronas e 304 colisões com RAM indefinida/incorreta; bypass NEW_DATA, escritas independentes e colisões consecutivas; PASS em Icarus e Verilator. Mutante sem bypass falha. |
+| `tb_background_motion` | 321 quadros VGA reais, 322 linhas completas e 206.080 amostras RGB independentes; scroll 1 por quadro em vblank, wrap 319→0→1, sem HALT/erro; PASS. Essa simulação leva aproximadamente cinco minutos neste ambiente. |
 | 17 regressões PBL1 | Background, memórias/paleta/compositor, rasterização, buffers, 32 sprites/flips/alpha/prioridade, botões, VGA, busca ativa, comandos inválidos e inicialização em quatro estados; PASS. |
 
 Cada demonstração é verificada por um modelo de geometria e composição separado
@@ -70,7 +76,12 @@ canônico continua sendo `F0000000`.
 
 ## Pré-síntese e hardware
 
-Yosys concluiu estrutura, hierarquia, drivers, inferência de memória e mapeamento
+O precheck atual de `gpu_avalon`, com carga MMIO, programa contínuo e bypass
+da CLUT, terminou com código 0: **235 M10K e 2.494 MISTRAL_FF** no modelo Yosys.
+Nenhuma RAM grande foi expandida em FF. O top HPS completo depende do IP
+Intel gerado no Quartus, que não está instalado neste ambiente.
+
+No checkpoint anterior, Yosys concluiu estrutura, hierarquia, drivers, inferência de memória e mapeamento
 preliminar Cyclone V em ambos os modos, com o programa padrão
 `background_sprites.hex` no modo de busca ativa:
 
@@ -86,7 +97,7 @@ O wrapper de placa deixa MMIO desconectado; gpu_avalon expõe o núcleo para o
 componente Platform Designer, ainda sem sistema HPS gerado. O protocolo e o
 cliente C estão descritos em [hps-mmio.md](hps-mmio.md).
 
-A preparação isolada do projeto Quartus passou para os quatro programas PBL2,
+A preparação isolada do projeto Quartus passou para os cinco programas PBL2,
 para `--active` (programa histórico de nove palavras), `--pbl1` e `--board`.
 A cópia inclui os novos módulos, memórias, QSF e SDC. O script valida o tamanho
 do HEX antes de compilar para evitar memória de instruções parcialmente vazia.
@@ -119,3 +130,16 @@ os pixels físicos com o modelo independente. A integração nativa do component
 Tcl no Platform Designer não pôde ser executada aqui; foram verificados
 elaboração/lint do wrapper e sintaxe/caminhos do Tcl. Isso não aprova sua API
 na versão instalada do Quartus nem a ponte física.
+
+## Preparacao do HPS minimo
+
+`scripts/prepare_hps.py` cria uma copia independente, com projeto, fontes,
+assets e scripts Qsys. Os parametros DDR/GPIO, portas e constraints HPS vieram
+da referencia DE1-SoC FPGAacademy, commit 13010c09, com licenca MIT e hashes
+preservados. O top foi elaborado contra um substituto da interface exportada;
+o Tcl foi executado com um registrador de chamadas para conferir clock 50 MHz,
+ponte lightweight, base relativa zero e os dois resets da GPU.
+
+Esses testes conferem a preparacao/ligacao pretendida. Nao geram IP Intel,
+nao compilam Quartus e nao demonstram boot ou MMIO ARM. O roteiro completo
+esta em [hps-minimo.md](hps-minimo.md).

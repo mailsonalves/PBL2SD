@@ -155,7 +155,7 @@ MMIO está ligado à CPU na integração RTL. O top FPGA mantém o barramento in
 
 ## Programa, Quartus e modo histórico
 
-Top principal usa busca ativa e programs/background_sprites.hex com 256 palavras iniciais. Os outros HEX podem ser selecionados para inicialização por PROGRAM_FILE ou carregados por MMIO após a integração HPS. programs/program_a.hex e program_b.hex demonstram polígono e duas sprites com o mesmo núcleo; o segundo aplica flips. A troca em execução altera apenas RAM/comprimento, sem nova síntese.
+Top principal usa busca ativa e programs/background_motion.hex com 256 palavras iniciais. Esse programa move o background continuamente, um pixel por quadro, com wrap em 320; o movimento é um loop de instruções, sem controle específico no hardware. Os outros HEX podem ser selecionados para inicialização por PROGRAM_FILE ou carregados por MMIO após a integração HPS. programs/program_a.hex e program_b.hex demonstram polígono e duas sprites com o mesmo núcleo; o segundo aplica flips. A troca em execução altera apenas RAM/comprimento, sem nova síntese.
 
 QSF inclui RTL/imagens. synth_quartus.sh --program programs/arquivo.hex --words N prepara/compila uma cópia isolada e aplica parâmetros nela. --prepare-only não requer Quartus e não gera bitstream. O caminho PROGRAM_FILE é escrito como literal Verilog no top da cópia; overrides de string no QSF são removidos para evitar aspas incorporadas ao nome do HEX. --board preserva botões; --active/--pbl1 selecionam os HEX históricos. A [README](../README.md) traz comandos completos.
 

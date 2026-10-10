@@ -3,12 +3,12 @@
 set -euo pipefail
 usage() {
     echo 'Uso: bash scripts/synth_quartus.sh [--board | --active | --pbl1 | --program programs/arquivo.hex] [--words N] [--prepare-only]'
-    echo 'Padrao: busca ativa, background_sprites.hex, 256 palavras.'
+    echo 'Padrao: busca ativa, background_motion.hex continuo, 256 palavras.'
     echo '--board: demonstracao historica por botoes; --active: fetch_demo (9); --pbl1: validacao PBL1 (17).'
 }
 active=1
 words=256
-program=programs/background_sprites.hex
+program=programs/background_motion.hex
 prepare_only=0
 mode_selected=0
 while (( $# )); do

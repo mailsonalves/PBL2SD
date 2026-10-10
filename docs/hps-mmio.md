@@ -89,7 +89,9 @@ Reset gráfico reinicializa CPU, sprites/buffers/controle/VGA, mas CLUT/tilemap 
 
 ## Integrar no sistema HPS da DE1-SoC
 
-Use um projeto de referência **Terasic válido para a sua revisão da DE1-SoC**, com HPS DDR3, pinout, configuração de clocks/resets e fluxo de boot já funcionais. Não reconstruir o HPS apenas a partir de um exemplo genérico. O repositório atual contém o top FPGA/VGA, mas não possui .qsys/.sopcinfo nem os arquivos de um sistema HPS verificado.
+O [projeto HPS mínimo](hps-minimo.md) agora fornece top, parâmetros DDR/pinos da referência DE1-SoC FPGAacademy e script que cria o sistema Qsys. É o caminho indicado para quem ainda não possui um projeto HPS. Sua geração nativa, boot e comunicação na placa continuam pendentes de validação local.
+
+Se você já possui outro projeto de referência **Terasic válido para a sua revisão da DE1-SoC**, com HPS DDR3, pinout, clocks/resets e boot funcionais, também pode acrescentar a GPU conforme os passos abaixo.
 
 1. Abra o projeto de referência no Quartus com suporte Cyclone V 5CSEMA5F31C6. Mantenha seus pinos HPS/DDR e configuração de memória. Confirme a revisão PCB e o esquema antes de combinar as atribuições VGA da GPU.
 2. No Platform Designer, configure o caminho de busca de componentes para a pasta `platform/` deste checkout e atualize o catálogo. Instancie o componente **GPU PBL2**, nome pbl2_gpu, uma vez. O Tcl aponta para os fontes do próprio checkout; não contém caminhos de uma instalação Quartus específica.
@@ -107,14 +109,14 @@ Use um projeto de referência **Terasic válido para a sua revisão da DE1-SoC**
 
 A base relativa escolhida no Platform Designer é apenas o offset do slave no espaço do master; não a use automaticamente como endereço de /dev/mem. Considere a janela da ponte definida para o HPS e a tradução descrita pelo sistema/boot/Linux.
 
-Use o .sopcinfo **do sistema que gerou o bitstream atual**, os headers derivados e o device tree correspondente. No SoC EDS compatível com o projeto, por exemplo:
+Use o .sopcinfo **do sistema que gerou o bitstream atual**, os headers derivados e o device tree correspondente. O novo projeto mínimo fixa o offset da GPU em zero na janela lightweight 0xFF200000; para ele, a base prevista é 0xFF200000, a conferir no mapa gerado. No SoC EDS compatível com o projeto, por exemplo:
 
 ```bash
 sopc-create-header-files <caminho/do/sistema.sopcinfo> \
   --single hps_0.h --module <nome_real_do_componente_hps>
 ```
 
-Confirme os argumentos com `sopc-create-header-files --help` da versão instalada. Verifique a base do slave vista pelo master lightweight e a janela/tradução da ponte nos arquivos gerados e no device tree (`reg`/`ranges`). Se o slave for exposto por driver/UIO, use o recurso mapeado pelo kernel. **Este repositório não atribui uma base física ARM:** ela será determinada no projeto integrado. O ID PBL2 ajuda a conferir o mapa, mas não torna seguro acessar um endereço arbitrário.
+Confirme os argumentos com `sopc-create-header-files --help` da versão instalada. Verifique a base do slave vista pelo master lightweight e a janela/tradução da ponte nos arquivos gerados e no device tree (`reg`/`ranges`). Se o slave for exposto por driver/UIO, use o recurso mapeado pelo kernel. Em projetos externos, a base depende do mapa escolhido. O ID PBL2 ajuda a conferir o mapa.
 
 ## Compilar e executar o cliente C
 
@@ -165,7 +167,16 @@ sudo ./gpu_load --base BASE_FISICA_CONFIRMADA \
   --program program_b.hex --timeout-ms 10000
 ```
 
-A ferramenta confere ID/capacidade, escreve CONTROL=12 para entrar/manter carga e limpar erro de tentativa anterior, aguarda LOAD_READY, escreve cada palavra, define comprimento, compara readback e solicita START com CONTROL=2. Depois aguarda HALT sem erro e imprime PC/status. O Programa A desenha um triângulo e posiciona duas sprites sem flips; o Programa B desenha um retângulo em outra região e posiciona duas sprites com flips H/V. O segundo comando carrega a outra cena **sem mudar o Verilog ou o bitstream**. Programas infinitos não chegam a HALT e causarão timeout nesta ferramenta; os programas fornecidos são finitos. Em falha de ID, não prossiga: verifique mapa/ponte/reset antes de tentar outro endereço.
+A ferramenta confere ID/capacidade, escreve CONTROL=12 para entrar/manter carga e limpar erro de tentativa anterior, aguarda LOAD_READY, escreve cada palavra, define comprimento, compara readback e solicita START com CONTROL=2. Por padrão aguarda HALT sem erro e imprime PC/status. O Programa A desenha um triângulo e posiciona duas sprites sem flips; o Programa B desenha um retângulo em outra região e posiciona duas sprites com flips H/V. O segundo comando carrega a outra cena **sem mudar o Verilog ou o bitstream**. Em falha de ID, não prossiga: verifique mapa/ponte/reset antes de tentar outro endereço.
+
+Para um jogo ou programa contínuo, use `--no-wait`. Essa opção preserva carga e readback, inicia a CPU e retorna sem esperar HALT:
+
+```bash
+sudo ./gpu_load --base BASE_FISICA_CONFIRMADA \
+  --program background_motion.hex --no-wait
+```
+
+`background_motion.hex` é o novo programa inicial padrão: o scroll avança uma unidade por quadro e volta de 319 para 0. Triângulo e sprites ficam fixos, sem alterar a CLUT. A execução contínua é controlada pela ISA, não pelo HPS. Sem `--no-wait`, programas contínuos causarão timeout na espera de HALT.
 
 Para um programa novo:
 

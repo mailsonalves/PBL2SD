@@ -35,7 +35,7 @@ proc pbl2_gpu_files {fileset_name} {
     }
     foreach asset {
         tiles.hex tilemap_data.hex palette.hex
-        programs/background_sprites.hex programs/polygons_motion.hex
+        programs/background_motion.hex programs/background_sprites.hex programs/polygons_motion.hex
         programs/program_a.hex programs/program_b.hex
         programs/fetch_demo.hex programs/sprites_demo.hex programs/pbl1_validation.hex
     } {
@@ -52,7 +52,7 @@ add_parameter PROGRAM_WORDS INTEGER 256
 set_parameter_property PROGRAM_WORDS DISPLAY_NAME "Instruction-memory capacity (words)"
 set_parameter_property PROGRAM_WORDS ALLOWED_RANGES {1:256}
 set_parameter_property PROGRAM_WORDS HDL_PARAMETER true
-add_parameter PROGRAM_FILE STRING "programs/background_sprites.hex"
+add_parameter PROGRAM_FILE STRING "programs/background_motion.hex"
 set_parameter_property PROGRAM_FILE DISPLAY_NAME "Initial program HEX (relative to project)"
 set_parameter_property PROGRAM_FILE HDL_PARAMETER true
 

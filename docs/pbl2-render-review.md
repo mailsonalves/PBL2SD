@@ -18,7 +18,7 @@ fixado pelo enunciado que obrigue a substituir a ISA já documentada.
 
 Esta é uma **referência calculada dos arquivos HEX**, sem captura da placa:
 
-![Referência do programa inicial background_sprites](images/background_sprites_reference.png)
+![Referência do programa antigo background_sprites](images/background_sprites_reference.png)
 
 A posição relativa dos canos, as figuras pequenas sobrepostas e os pontos
 magenta/verde são compatíveis com o exemplo fotografado. Isso sugere execução
@@ -50,6 +50,38 @@ reexecutáveis depois de outro programa, sem fixar cenas na unidade de controle.
 Um programa que precise de cores independentes deve reservar índices/bancos
 e gerenciar essa CLUT compartilhada; o hardware não fornece paletas separadas
 por camada.
+
+## Background parado e colisao da paleta
+
+O antigo programa padrao `background_sprites` executa apenas quatro
+WAIT_FRAME/atualizacoes e termina em HALT: cerca de 67 ms de animacao. Depois
+disso, o scroll fica em 32. Esse comportamento explica uma cena que parece
+parada apos a programacao; nao foi reproduzido congelamento no motor de
+background. Uma auditoria adicional conferiu o pipeline com offsets completos
+de scroll mudando durante 10.000 ciclos.
+
+O novo padrao `background_motion` usa um loop da ISA: WAIT_FRAME, soma,
+CMP/desvio e SCROLLR, com wrap de 319 para zero. Nenhuma coordenada de motor
+foi alterada. Triangulo e sprites da cena A ficam fixos; apenas o background
+se move. O teste `tb_background_motion` passou 321 quadros VGA reais,
+322 linhas completas de 640 pixels e 206.080 comparacoes RGB amostradas
+na borda de subida de VGA_CLK. Confere um SCROLL por quadro em vblank,
+incluindo 319/0/1, sem HALT ou erro.
+
+Foi corrigido um risco concreto na CLUT: `no_rw_check` permite resultado
+indefinido na leitura/escrita simultanea do mesmo endereco de M10K, embora
+a simulacao RTL antiga retornasse a cor anterior. O relatorio historico
+`output_files/gpu.map.rpt` registra mixed-port DONT_CARE para essa memoria;
+esse relatorio serve de evidencia do modo de memoria, nao de timing atual.
+A saida agora tem bypass registrado: uma colisao retorna **a nova cor**,
+com a mesma latencia de um ciclo e armazenamento M10K.
+
+`tb_palette_collision` passou em Icarus e Verilator: 1.106 leituras e 304
+colisoes, inclusive com a saida RAM envenenada por X/valor incorreto.
+Remover o bypass faz o teste falhar na primeira colisao. Isso corrige o
+caso de acesso simultaneo; nao prova que explica defeitos que permaneçam
+na placa depois de HALT. Outros defeitos visuais ainda precisam ser
+confrontados com o programa atual e os relatorios Quartus/TimeQuest.
 
 ## Rasterizador, sprites e sincronização
 
@@ -133,7 +165,7 @@ de registradores são mascarados. Isso permite recorte à direita/embaixo;
 posição negativa não representa recorte à esquerda/cima. Essa limitação está
 documentada na ISA e não foi ampliada sem requisito do enunciado.
 
-A ponte física HPS ainda precisa ser gerada com configuração DDR/boot/pinagem
-da placa e o mapa real do Platform Designer. Os arquivos entregues incluem
-componente, cliente e protocolo testado; não constituem validação da ponte
-ou do Linux ARM em hardware.
+O [projeto HPS mínimo](hps-minimo.md) inclui parâmetros DDR e portas/pinos
+da referência DE1-SoC, top e gerador Tcl. Sua geração nativa, boot e MMIO
+ainda precisam ser conferidos no Quartus e na placa; não constituem validação
+física da ponte ou do Linux ARM.
