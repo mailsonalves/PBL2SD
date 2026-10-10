@@ -1,5 +1,9 @@
 Assembler report for gpu
+<<<<<<< HEAD
 Tue Sep  1 16:44:17 2026
+=======
+Sat Oct 10 17:23:13 2026
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Quartus Prime Version 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
 
 
@@ -38,7 +42,11 @@ on the Quartus Prime software download page.
 +---------------------------------------------------------------+
 ; Assembler Summary                                             ;
 +-----------------------+---------------------------------------+
+<<<<<<< HEAD
 ; Assembler Status      ; Successful - Tue Sep  1 16:44:17 2026 ;
+=======
+; Assembler Status      ; Successful - Sat Oct 10 17:23:13 2026 ;
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 ; Revision Name         ; gpu                                   ;
 ; Top-level Entity Name ; gpu_de1_soc_top                       ;
 ; Family                ; Cyclone V                             ;
@@ -53,6 +61,7 @@ on the Quartus Prime software download page.
 +--------+---------+---------------+
 
 
+<<<<<<< HEAD
 +-----------------------------------------------------+
 ; Assembler Generated Files                           ;
 +-----------------------------------------------------+
@@ -60,6 +69,15 @@ on the Quartus Prime software download page.
 +-----------------------------------------------------+
 ; /home/aluno/Downloads/PBL1_rml/output_files/gpu.sof ;
 +-----------------------------------------------------+
+=======
++------------------------------------------------------------------------------+
+; Assembler Generated Files                                                    ;
++------------------------------------------------------------------------------+
+; File Name                                                                    ;
++------------------------------------------------------------------------------+
+; /home/aluno/Downloads/PBL2SD-pbl2-etapa3-conclusao-pbl1/output_files/gpu.sof ;
++------------------------------------------------------------------------------+
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 
 
 +-----------------------------------+
@@ -67,8 +85,13 @@ on the Quartus Prime software download page.
 +----------------+------------------+
 ; Option         ; Setting          ;
 +----------------+------------------+
+<<<<<<< HEAD
 ; JTAG usercode  ; 0x02C7BF2A       ;
 ; Checksum       ; 0x02C7BF2A       ;
+=======
+; JTAG usercode  ; 0x01004365       ;
+; Checksum       ; 0x01004365       ;
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 +----------------+------------------+
 
 
@@ -78,14 +101,24 @@ on the Quartus Prime software download page.
 Info: *******************************************************************
 Info: Running Quartus Prime Assembler
     Info: Version 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
+<<<<<<< HEAD
     Info: Processing started: Tue Sep  1 16:44:13 2026
+=======
+    Info: Processing started: Sat Oct 10 17:23:10 2026
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Info: Command: quartus_asm --read_settings_files=off --write_settings_files=off gpu -c gpu
 Warning (18236): Number of processors has not been specified which may cause overloading on shared machines.  Set the global assignment NUM_PARALLEL_PROCESSORS in your QSF to an appropriate value for best performance.
 Info (115030): Assembler is generating device programming files
 Info: Quartus Prime Assembler was successful. 0 errors, 1 warning
+<<<<<<< HEAD
     Info: Peak virtual memory: 558 megabytes
     Info: Processing ended: Tue Sep  1 16:44:17 2026
     Info: Elapsed time: 00:00:04
+=======
+    Info: Peak virtual memory: 519 megabytes
+    Info: Processing ended: Sat Oct 10 17:23:13 2026
+    Info: Elapsed time: 00:00:03
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
     Info: Total CPU time (on all processors): 00:00:04
 
 

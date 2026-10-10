@@ -23,6 +23,7 @@ module tb_initialization;
                 @(posedge clock); #1;
                 if (^{red,green,blue,hs,vs,blank,sync_n,pixel_clock,leds} === 1'bx)
                     $fatal(1, "Saida indefinida no ciclo %0d reset %0d", n, resets);
+<<<<<<< HEAD
                 if (!dut.u_core.buffer_initialized && {red,green,blue} !== 24'd0)
                     $fatal(1, "Video nao ficou preto durante inicializacao");
                 if (n > 4 && ^{dut.u_core.sp_pixel, dut.u_core.poly_pixel, dut.u_core.final_pixel_idx,
@@ -34,6 +35,19 @@ module tb_initialization;
                 $fatal(1, "Inicializacao nao terminou");
             for (i = 0; i < 76800; i = i+1)
                 if (dut.u_core.u_poly_buffer.ram[i] !== 0 || dut.u_core.u_poly_buffer.back_ram[i] !== 0)
+=======
+                if (!dut.buffer_initialized && {red,green,blue} !== 24'd0)
+                    $fatal(1, "Video nao ficou preto durante inicializacao");
+                if (n > 4 && ^{dut.sp_pixel, dut.poly_pixel, dut.final_pixel_idx,
+                    dut.cmd_ready, dut.rast_busy, dut.sprite_busy, dut.buffer_busy} === 1'bx)
+                    $fatal(1, "Estado de controle/pixel indefinido no ciclo %0d", n);
+                if (dut.buffer_initialized) initialized_checks = initialized_checks+1;
+            end
+            if (!leds[3] || !dut.buffer_initialized || dut.sprite_busy)
+                $fatal(1, "Inicializacao nao terminou");
+            for (i = 0; i < 76800; i = i+1)
+                if (dut.u_poly_buffer.ram[i] !== 0 || dut.u_poly_buffer.back_ram[i] !== 0)
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                     $fatal(1, "RAM nao inicializada em %0d", i);
         end
         $display("PASS: Icarus quatro estados; dois resets, 156000 ciclos sem X nos pinos/controle e buffers inicializados");

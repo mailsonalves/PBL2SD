@@ -13,5 +13,9 @@ CFA00000
 8000140A
 9FF00A14
 D1000000
+<<<<<<< HEAD
 F0000001
+=======
+20000000
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 F0000000

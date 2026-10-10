@@ -24,6 +24,7 @@ module tb_sprites_active_fetch;
     integer clear_writes = 0;
     always @(posedge clock) begin
         if (keys[0]) begin
+<<<<<<< HEAD
             if (dut.u_core.cmd_valid && dut.u_core.cmd_ready) accepted = accepted + 1;
             if (dut.u_core.sat_we) sprite_writes = sprite_writes + 1;
             if (dut.u_core.buf_we) begin
@@ -32,6 +33,16 @@ module tb_sprites_active_fetch;
                 clear_writes = clear_writes + 1;
             end
             if (dut.u_core.rast_busy && dut.u_core.cmd_valid)
+=======
+            if (dut.cmd_valid && dut.cmd_ready) accepted = accepted + 1;
+            if (dut.sat_we) sprite_writes = sprite_writes + 1;
+            if (dut.buf_we) begin
+                if (dut.buf_wr_data != 0 || dut.buf_wr_addr != clear_writes)
+                    $fatal(1, "Programa nao limpou a camada de poligonos em ordem");
+                clear_writes = clear_writes + 1;
+            end
+            if (dut.rast_busy && dut.cmd_valid)
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                 $fatal(1, "Comando enviado antes da conclusao da limpeza");
         end
     end
@@ -70,6 +81,7 @@ module tb_sprites_active_fetch;
         if (accepted != 11 || sprite_writes != 10 || clear_writes != 76800)
             $fatal(1, "Contagens incorretas: comandos=%0d sprites=%0d limpeza=%0d",
                    accepted, sprite_writes, clear_writes);
+<<<<<<< HEAD
         if (dut.u_core.u_sprite_engine.sat_ram[0] !== attributes(0,0,0,150,100,0) ||
             dut.u_core.u_sprite_engine.sat_ram[1] !== attributes(1,0,0,48,64,1) ||
             dut.u_core.u_sprite_engine.sat_ram[2] !== attributes(0,1,0,80,60,5) ||
@@ -80,6 +92,18 @@ module tb_sprites_active_fetch;
                 $fatal(1, "Programa alterou sprite nao selecionado: %0d", i);
         for (i = 0; i < 76800; i = i+1)
             if (dut.u_core.u_poly_buffer.ram[i] !== 0)
+=======
+        if (dut.u_sprite_engine.sat_ram[0] !== attributes(0,0,0,150,100,0) ||
+            dut.u_sprite_engine.sat_ram[1] !== attributes(1,0,0,48,64,1) ||
+            dut.u_sprite_engine.sat_ram[2] !== attributes(0,1,0,80,60,5) ||
+            dut.u_sprite_engine.sat_ram[31] !== attributes(1,1,1,120,60,13))
+            $fatal(1, "Programa nao preservou posicoes/atributos dos sprites");
+        for (i = 3; i < 31; i = i+1)
+            if (dut.u_sprite_engine.sat_ram[i] !== 0)
+                $fatal(1, "Programa alterou sprite nao selecionado: %0d", i);
+        for (i = 0; i < 76800; i = i+1)
+            if (dut.u_poly_buffer.ram[i] !== 0)
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                 $fatal(1, "Framebuffer nao foi limpo");
 
         samples = 0; active = 0; hs_low = 0; vs_low = 0;
@@ -87,7 +111,11 @@ module tb_sprites_active_fetch;
         while (samples < 800*525) begin
             @(posedge clock);
             #1;
+<<<<<<< HEAD
             if (!leds[3] || dut.u_core.cmd_valid || accepted != 11)
+=======
+            if (!leds[3] || dut.cmd_valid || accepted != 11)
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                 $fatal(1, "Programa nao permaneceu em HALT");
             // Segunda borda de CLOCK_50 do pixel: a VRAM ja leu seu endereco.
             if (!pixel_clock) begin
@@ -97,6 +125,7 @@ module tb_sprites_active_fetch;
                 if (blank) begin
                     active = active+1;
                     expected_address = 0;
+<<<<<<< HEAD
                     if (dut.u_core.pixel_x >= 48 && dut.u_core.pixel_x < 64 &&
                         dut.u_core.pixel_y >= 64 && dut.u_core.pixel_y < 80) begin
                         expected_address = image_address(dut.u_core.pixel_x-48, dut.u_core.pixel_y-64, 1, 0, 0);
@@ -113,6 +142,24 @@ module tb_sprites_active_fetch;
                         dut.u_core.sp_pixel !== dut.u_core.u_patterns.ram[expected_address])
                         $fatal(1, "Pixel de sprite incorreto em (%0d,%0d)",
                                dut.u_core.pixel_x, dut.u_core.pixel_y);
+=======
+                    if (dut.pixel_x >= 48 && dut.pixel_x < 64 &&
+                        dut.pixel_y >= 64 && dut.pixel_y < 80) begin
+                        expected_address = image_address(dut.pixel_x-48, dut.pixel_y-64, 1, 0, 0);
+                        sprite1_pixels = sprite1_pixels+1;
+                    end else if (dut.pixel_x >= 120 && dut.pixel_x < 136 &&
+                                 dut.pixel_y >= 60 && dut.pixel_y < 76) begin
+                        expected_address = image_address(dut.pixel_x-120, dut.pixel_y-60, 13, 1, 1);
+                        sprite31_pixels = sprite31_pixels+1;
+                    end
+                    if (dut.pixel_x >= 80 && dut.pixel_x < 96 &&
+                        dut.pixel_y >= 60 && dut.pixel_y < 76)
+                        disabled_pixels = disabled_pixels+1;
+                    if (dut.sp_vram_addr != expected_address ||
+                        dut.sp_pixel !== dut.u_patterns.ram[expected_address])
+                        $fatal(1, "Pixel de sprite incorreto em (%0d,%0d)",
+                               dut.pixel_x, dut.pixel_y);
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                 end
             end
         end

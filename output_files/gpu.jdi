@@ -1,6 +1,10 @@
 <sld_project_info>
   <project>
+<<<<<<< HEAD
     <hash md5_digest_80b="293eef1e7054c5e1f19e"/>
+=======
+    <hash md5_digest_80b="affa165775c23db7a99e"/>
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
   </project>
   <file_info>
     <file device="5CSEMA5F31C6" path="gpu.sof" usercode="0xFFFFFFFF"/>

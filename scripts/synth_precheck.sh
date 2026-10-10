@@ -4,15 +4,25 @@
 set -euo pipefail
 
 usage() {
+<<<<<<< HEAD
     echo "Uso: bash scripts/synth_precheck.sh [--board | --active] [--structure-only]"
     echo "Padrao: estrutura, RAM e mapeamento preliminar Cyclone V."
 }
 active=1
+=======
+    echo "Uso: bash scripts/synth_precheck.sh [--active] [--structure-only]"
+    echo "Padrao: estrutura, RAM e mapeamento preliminar Cyclone V."
+}
+active=0
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 structure_only=0
 for argument in "$@"; do
     case "$argument" in
         --active) active=1 ;;
+<<<<<<< HEAD
         --board) active=0 ;;
+=======
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
         --structure-only) structure_only=1 ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -112,7 +122,11 @@ import sys
 
 cells = json.load(open(sys.argv[1]))['modules']['gpu_de1_soc_top']['cells']
 counts = collections.Counter(c['type'] for c in cells.values())
+<<<<<<< HEAD
 blocks = collections.Counter(name.removeprefix('u_core.').split('.')[0] for name, cell in cells.items()
+=======
+blocks = collections.Counter(name.split('.')[0] for name, cell in cells.items()
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
                              if cell['type'] == 'MISTRAL_M10K')
 lines = ['Recursos apos otimizacao final (preliminares; nao sao ALMs do fitter):']
 lines += [f'  {kind}: {count}' for kind, count in sorted(counts.items())

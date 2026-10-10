@@ -1,3 +1,6 @@
 .build/
+<<<<<<< HEAD
 __pycache__/
 *.pyc
+=======
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)

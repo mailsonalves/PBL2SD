@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 // CPU multiciclo: busca sincrona, execucao inteira e comandos graficos com
 // handshake. A memoria e os motores graficos do PBL1 sao reutilizados.
+=======
+// Etapa 1: busca comandos existentes, conserva o IR e espera sua execucao.
+// Ainda nao implementa banco de registradores, ULA ou desvios.
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 module active_fetch_controller #(
     parameter integer ADDRESS_WIDTH = 8,
     parameter integer PROGRAM_WORDS = 9,
@@ -9,6 +14,7 @@ module active_fetch_controller #(
     input wire rst_n,
     input wire cmd_ready,
     input wire execution_busy,
+<<<<<<< HEAD
     input wire frame_boundary,
     input wire restart,
     input wire pause,
@@ -50,6 +56,23 @@ module active_fetch_controller #(
         .halt_instruction(halt_instruction), .invalid_instruction(invalid_instruction),
         .subop(subop), .graphics_word(graphics_word), .flags(flags)
     );
+=======
+    output wire [31:0] cmd_data,
+    output wire cmd_valid,
+    output wire halted,
+    output reg [ADDRESS_WIDTH-1:0] pc,
+    output reg [31:0] ir
+);
+    localparam FETCH = 3'd0;
+    localparam LATCH = 3'd1;
+    localparam ISSUE = 3'd2;
+    localparam SETTLE = 3'd3;
+    localparam WAIT_DONE = 3'd4;
+    localparam HALTED = 3'd5;
+
+    reg [2:0] state;
+    wire [31:0] fetched_instruction;
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 
     instruction_memory #(
         .ADDRESS_WIDTH(ADDRESS_WIDTH),
@@ -61,6 +84,7 @@ module active_fetch_controller #(
         .instruction(fetched_instruction)
     );
 
+<<<<<<< HEAD
     assign cmd_data = graphics_word;
     assign cmd_valid = rst_n && state == ISSUE && !pause && !restart &&
                        graphics_instruction && !invalid_instruction;
@@ -68,12 +92,20 @@ module active_fetch_controller #(
     assign waiting_frame = (state == WAIT_FRAME);
     assign busy = (!halted && !pause) || state == SETTLE || state == WAIT_DONE ||
                   state == WAIT_FRAME || state == RESTART_SETTLE || state == RESTART_DRAIN;
+=======
+    assign cmd_data = ir;
+    // Apenas a palavra canonica e HALT. Opcode F com payload reservado deve
+    // seguir ao decoder, que o rejeita sem interromper a busca ativa.
+    assign cmd_valid = rst_n && (state == ISSUE) && (ir != 32'hF0000000);
+    assign halted = (state == HALTED);
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= FETCH;
             pc <= 0;
             ir <= 32'hF0000000;
+<<<<<<< HEAD
             done <= 1'b0;
             error <= 1'b0;
         end else begin
@@ -147,6 +179,34 @@ module active_fetch_controller #(
                     default: state <= FETCH;
                 endcase
             end
+=======
+        end else begin
+            case (state)
+                // A memoria recebe o endereco nesta borda.
+                FETCH: state <= LATCH;
+                // Captura o resultado da leitura sincrona anterior.
+                LATCH: begin
+                    ir <= fetched_instruction;
+                    state <= ISSUE;
+                end
+                ISSUE: begin
+                    if (ir == 32'hF0000000)
+                        state <= HALTED;
+                    else if (cmd_ready)
+                        state <= SETTLE;
+                end
+                // O decoder registra start; busy so sobe na borda seguinte.
+                SETTLE: state <= WAIT_DONE;
+                WAIT_DONE: begin
+                    if (cmd_ready && !execution_busy) begin
+                        pc <= pc + 1'b1;
+                        state <= FETCH;
+                    end
+                end
+                HALTED: state <= HALTED;
+                default: state <= FETCH;
+            endcase
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
         end
     end
 endmodule

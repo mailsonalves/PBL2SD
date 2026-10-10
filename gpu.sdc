@@ -2,7 +2,11 @@
 create_clock -name CLOCK_50 -period 20.000 [get_ports {CLOCK_50}]
 
 # Nome real do divisor no RTL. Falhar se nao encontrado evita analise enganosa.
+<<<<<<< HEAD
 set pixel_divider [get_registers {*|clk_25m}]
+=======
+set pixel_divider [get_registers {clk_25m}]
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 if {[get_collection_size $pixel_divider] != 1} {
     error "gpu.sdc: esperado um registro clk_25m; confira o netlist e o nome do divisor."
 }

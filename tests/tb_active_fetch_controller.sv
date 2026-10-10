@@ -26,8 +26,11 @@ module tb_active_fetch_controller;
         .rst_n(rst_n),
         .cmd_ready(cmd_ready),
         .execution_busy(execution_busy),
+<<<<<<< HEAD
         .frame_boundary(1'b0), .restart(1'b0), .pause(1'b0),
         .clear_error(1'b0), .cmd_error(1'b0),
+=======
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
         .cmd_data(cmd_data),
         .cmd_valid(cmd_valid),
         .halted(halted),

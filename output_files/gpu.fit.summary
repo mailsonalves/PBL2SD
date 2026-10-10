@@ -1,10 +1,15 @@
+<<<<<<< HEAD
 Fitter Status : Successful - Tue Sep  1 16:44:11 2026
+=======
+Fitter Status : Successful - Sat Oct 10 17:23:08 2026
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Quartus Prime Version : 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
 Revision Name : gpu
 Top-level Entity Name : gpu_de1_soc_top
 Family : Cyclone V
 Device : 5CSEMA5F31C6
 Timing Models : Final
+<<<<<<< HEAD
 Logic utilization (in ALMs) : 2,204 / 32,070 ( 7 % )
 Total registers : 2870
 Total pins : 54 / 457 ( 12 % )
@@ -12,6 +17,15 @@ Total virtual pins : 0
 Total block memory bits : 751,616 / 4,065,280 ( 18 % )
 Total RAM Blocks : 93 / 397 ( 23 % )
 Total DSP Blocks : 6 / 87 ( 7 % )
+=======
+Logic utilization (in ALMs) : 404 / 32,070 ( 1 % )
+Total registers : 321
+Total pins : 54 / 457 ( 12 % )
+Total virtual pins : 0
+Total block memory bits : 137,216 / 4,065,280 ( 3 % )
+Total RAM Blocks : 17 / 397 ( 4 % )
+Total DSP Blocks : 2 / 87 ( 2 % )
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Total HSSI RX PCSs : 0
 Total HSSI PMA RX Deserializers : 0
 Total HSSI TX PCSs : 0

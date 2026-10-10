@@ -7,6 +7,7 @@ state.RAST_TRI 0 1 0 1
 state.RAST_CLEAR 1 0 0 1 
 
 State Machine - |gpu_de1_soc_top|board_input_controller:u_input_ctrl|state
+<<<<<<< HEAD
 Name state.S_SEND_CLR state.S_SEND_R6 state.S_SEND_R5 state.S_SEND_R4 state.S_SEND_R3 state.S_SEND_R2 state.S_SEND_R1 state.S_SEND_P3 state.S_SEND_P2 state.S_SEND_P1 state.S_SEND_SPR state.S_SEND_SCR state.S_IDLE 
 state.S_IDLE 0 0 0 0 0 0 0 0 0 0 0 0 0 
 state.S_SEND_SCR 0 0 0 0 0 0 0 0 0 0 0 1 1 
@@ -21,3 +22,20 @@ state.S_SEND_R4 0 0 0 1 0 0 0 0 0 0 0 0 1
 state.S_SEND_R5 0 0 1 0 0 0 0 0 0 0 0 0 1 
 state.S_SEND_R6 0 1 0 0 0 0 0 0 0 0 0 0 1 
 state.S_SEND_CLR 1 0 0 0 0 0 0 0 0 0 0 0 1 
+=======
+Name state.S_CAPTURE_FRAME state.S_SEND_CLR state.S_SEND_R6 state.S_SEND_R5 state.S_SEND_R4 state.S_SEND_R3 state.S_SEND_R2 state.S_SEND_R1 state.S_SEND_P3 state.S_SEND_P2 state.S_SEND_P1 state.S_SEND_SPR state.S_SEND_SCR state.S_IDLE 
+state.S_IDLE 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+state.S_SEND_SCR 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
+state.S_SEND_SPR 0 0 0 0 0 0 0 0 0 0 0 1 0 1 
+state.S_SEND_P1 0 0 0 0 0 0 0 0 0 0 1 0 0 1 
+state.S_SEND_P2 0 0 0 0 0 0 0 0 0 1 0 0 0 1 
+state.S_SEND_P3 0 0 0 0 0 0 0 0 1 0 0 0 0 1 
+state.S_SEND_R1 0 0 0 0 0 0 0 1 0 0 0 0 0 1 
+state.S_SEND_R2 0 0 0 0 0 0 1 0 0 0 0 0 0 1 
+state.S_SEND_R3 0 0 0 0 0 1 0 0 0 0 0 0 0 1 
+state.S_SEND_R4 0 0 0 0 1 0 0 0 0 0 0 0 0 1 
+state.S_SEND_R5 0 0 0 1 0 0 0 0 0 0 0 0 0 1 
+state.S_SEND_R6 0 0 1 0 0 0 0 0 0 0 0 0 0 1 
+state.S_SEND_CLR 0 1 0 0 0 0 0 0 0 0 0 0 0 1 
+state.S_CAPTURE_FRAME 1 0 0 0 0 0 0 0 0 0 0 0 0 1 
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)

@@ -144,6 +144,7 @@ set_global_assignment -name HEX_FILE tilemap_data.hex
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name VERILOG_FILE sprite_engine.v
+<<<<<<< HEAD
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 
 # PBL2: controle programavel e interface local MMIO.
@@ -158,3 +159,9 @@ set_global_assignment -name HEX_FILE programs/polygons_motion.hex
 set_parameter -name USE_ACTIVE_FETCH 1
 set_parameter -name PROGRAM_WORDS 256
 set_parameter -name PROGRAM_FILE {"programs/background_sprites.hex"}
+=======
+
+set_global_assignment -name VERILOG_FILE output_files/instruction_memory.v
+set_global_assignment -name VERILOG_FILE output_files/fetch_control_unit.v
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)

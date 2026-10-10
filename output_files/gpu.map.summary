@@ -1,14 +1,26 @@
+<<<<<<< HEAD
 Analysis & Synthesis Status : Successful - Tue Sep  1 16:43:19 2026
+=======
+Analysis & Synthesis Status : Successful - Sat Oct 10 17:22:44 2026
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Quartus Prime Version : 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
 Revision Name : gpu
 Top-level Entity Name : gpu_de1_soc_top
 Family : Cyclone V
 Logic utilization (in ALMs) : N/A
+<<<<<<< HEAD
 Total registers : 2811
 Total pins : 54
 Total virtual pins : 0
 Total block memory bits : 751,616
 Total DSP Blocks : 6
+=======
+Total registers : 288
+Total pins : 54
+Total virtual pins : 0
+Total block memory bits : 137,216
+Total DSP Blocks : 2
+>>>>>>> 1ee5570 (busca ativa com erros de exibição)
 Total HSSI RX PCSs : 0
 Total HSSI PMA RX Deserializers : 0
 Total HSSI TX PCSs : 0
