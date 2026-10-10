@@ -4,14 +4,15 @@
 set -euo pipefail
 
 usage() {
-    echo "Uso: bash scripts/synth_precheck.sh [--active] [--structure-only]"
+    echo "Uso: bash scripts/synth_precheck.sh [--board | --active] [--structure-only]"
     echo "Padrao: estrutura, RAM e mapeamento preliminar Cyclone V."
 }
-active=0
+active=1
 structure_only=0
 for argument in "$@"; do
     case "$argument" in
         --active) active=1 ;;
+        --board) active=0 ;;
         --structure-only) structure_only=1 ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -111,7 +112,7 @@ import sys
 
 cells = json.load(open(sys.argv[1]))['modules']['gpu_de1_soc_top']['cells']
 counts = collections.Counter(c['type'] for c in cells.values())
-blocks = collections.Counter(name.split('.')[0] for name, cell in cells.items()
+blocks = collections.Counter(name.removeprefix('u_core.').split('.')[0] for name, cell in cells.items()
                              if cell['type'] == 'MISTRAL_M10K')
 lines = ['Recursos apos otimizacao final (preliminares; nao sao ALMs do fitter):']
 lines += [f'  {kind}: {count}' for kind, count in sorted(counts.items())

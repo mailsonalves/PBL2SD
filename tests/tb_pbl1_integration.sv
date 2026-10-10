@@ -51,20 +51,20 @@ module tb_pbl1_integration;
     integer accepted = 0, errors = 0, swaps = 0, writes = 0;
     reg previous_front = 0;
     always @(posedge clock) begin
-        if (dut.rst_n) begin
-            if (dut.cmd_valid && dut.cmd_ready) accepted = accepted + 1;
-            if (dut.cmd_error) errors = errors + 1;
-            if (dut.buffer_swap_done) swaps = swaps + 1;
-            if (dut.buf_we) begin
+        if (dut.u_core.rst_n) begin
+            if (dut.u_core.cmd_valid && dut.u_core.cmd_ready) accepted = accepted + 1;
+            if (dut.u_core.cmd_error) errors = errors + 1;
+            if (dut.u_core.buffer_swap_done) swaps = swaps + 1;
+            if (dut.u_core.buf_we) begin
                 writes = writes + 1;
-                if (!dut.buffer_double_buffered || dut.buffer_front)
+                if (!dut.u_core.buffer_double_buffered || dut.u_core.buffer_front)
                     $fatal(1, "Desenho nao foi enviado ao buffer oculto");
-                if (dut.u_poly_buffer.ram[dut.buf_wr_addr] !== 0)
+                if (dut.u_core.u_poly_buffer.ram[dut.u_core.buf_wr_addr] !== 0)
                     $fatal(1, "Buffer visivel alterado antes do PRESENT");
             end
-            if (dut.buffer_front != previous_front && !dut.vblank)
+            if (dut.u_core.buffer_front != previous_front && !dut.u_core.vblank)
                 $fatal(1, "Troca de buffer fora do intervalo vertical");
-            previous_front = dut.buffer_front;
+            previous_front = dut.u_core.buffer_front;
         end
     end
 
@@ -79,12 +79,12 @@ module tb_pbl1_integration;
         if (accepted != 16 || errors != 1 || swaps != 1 || writes != 76866)
             $fatal(1, "Contagens: comandos=%0d erros=%0d swaps=%0d writes=%0d",
                 accepted, errors, swaps, writes);
-        if (!leds[4] || !leds[5] || !leds[6] || !leds[7] || dut.execution_busy)
+        if (!leds[4] || !leds[5] || !leds[6] || !leds[7] || dut.u_core.execution_busy)
             $fatal(1, "Status final incorreto");
         for (i = 0; i < 76800; i = i+1) begin
             x = i%320; y = i/320;
-            if (dut.u_poly_buffer.ram[i] !== 0 ||
-                dut.u_poly_buffer.back_ram[i] !== ((x>=10 && y>=10 && x+y<=30) ? 8'hFF : 8'd0))
+            if (dut.u_core.u_poly_buffer.ram[i] !== 0 ||
+                dut.u_core.u_poly_buffer.back_ram[i] !== ((x>=10 && y>=10 && x+y<=30) ? 8'hFF : 8'd0))
                 $fatal(1, "Buffers incorretos em (%0d,%0d)", x, y);
         end
 
@@ -95,10 +95,10 @@ module tb_pbl1_integration;
             @(posedge clock);
             expected_rgb[2] = expected_rgb[1];
             expected_rgb[1] = expected_rgb[0];
-            expected_rgb[0] = reference_rgb(int'(dut.pixel_x), int'(dut.pixel_y), dut.video_active);
-            expected_hs = {expected_hs[1:0], dut.raw_hsync};
-            expected_vs = {expected_vs[1:0], dut.raw_vsync};
-            expected_blank = {expected_blank[1:0], dut.video_active};
+            expected_rgb[0] = reference_rgb(int'(dut.u_core.pixel_x), int'(dut.u_core.pixel_y), dut.u_core.video_active);
+            expected_hs = {expected_hs[1:0], dut.u_core.raw_hsync};
+            expected_vs = {expected_vs[1:0], dut.u_core.raw_vsync};
+            expected_blank = {expected_blank[1:0], dut.u_core.video_active};
             #1;
             if (samples >= 2) begin
                 if ({red,green,blue} !== expected_rgb[2] || hs !== expected_hs[2] ||
@@ -109,7 +109,7 @@ module tb_pbl1_integration;
                 if (blank) active_samples = active_samples+1;
                 if (!hs) hs_low = hs_low+1;
                 if (!vs) vs_low = vs_low+1;
-                if (!leds[3] || dut.cmd_valid || accepted != 16 || sync_n !== 0)
+                if (!leds[3] || dut.u_core.cmd_valid || accepted != 16 || sync_n !== 0)
                     $fatal(1, "HALT/status nao permaneceu estavel");
             end
         end

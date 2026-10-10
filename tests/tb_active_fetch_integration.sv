@@ -8,7 +8,7 @@ module tb_active_fetch_integration;
     wire hs, vs, blank, sync_n, pixel_clock;
     wire [7:0] red, green, blue;
 
-    gpu_de1_soc_top #(.USE_ACTIVE_FETCH(1)) dut (
+    gpu_de1_soc_top #(.USE_ACTIVE_FETCH(1), .PROGRAM_WORDS(9), .PROGRAM_FILE("programs/fetch_demo.hex")) dut (
         .CLOCK_50(clock), .KEY(keys), .SW(10'd0), .LEDR(leds),
         .VGA_HS(hs), .VGA_VS(vs), .VGA_R(red), .VGA_G(green),
         .VGA_B(blue), .VGA_BLANK_N(blank), .VGA_SYNC_N(sync_n),
@@ -26,24 +26,24 @@ module tb_active_fetch_integration;
     // Observa as escritas na borda em que as memorias as recebem.
     always @(posedge clock) begin
         if (keys[0]) begin
-            if (dut.cmd_valid && dut.cmd_ready)
+            if (dut.u_core.cmd_valid && dut.u_core.cmd_ready)
                 accepted = accepted + 1;
-            if (dut.rast_busy && dut.cmd_valid)
+            if (dut.u_core.rast_busy && dut.u_core.cmd_valid)
                 $fatal(1, "Novo comando durante rasterizacao");
-            if (dut.pal_we) palette_writes = palette_writes + 1;
-            if (dut.tm_we) tilemap_writes = tilemap_writes + 1;
-            if (dut.sat_we) sprite_writes = sprite_writes + 1;
-            if (dut.buf_we) begin
-                if (dut.buf_wr_data == 0) begin
-                    if (dut.buf_wr_addr != clear_writes)
+            if (dut.u_core.pal_we) palette_writes = palette_writes + 1;
+            if (dut.u_core.tm_we) tilemap_writes = tilemap_writes + 1;
+            if (dut.u_core.sat_we) sprite_writes = sprite_writes + 1;
+            if (dut.u_core.buf_we) begin
+                if (dut.u_core.buf_wr_data == 0) begin
+                    if (dut.u_core.buf_wr_addr != clear_writes)
                         $fatal(1, "Limpeza perdeu ou repetiu endereco");
                     clear_writes = clear_writes + 1;
                 end else begin
                     if (clear_writes != 76800)
                         $fatal(1, "Desenho iniciado antes da limpeza completa");
-                    write_x = dut.buf_wr_addr % 320;
-                    write_y = dut.buf_wr_addr / 320;
-                    if (dut.buf_wr_data != 8'hFF || write_x < 10 ||
+                    write_x = dut.u_core.buf_wr_addr % 320;
+                    write_y = dut.u_core.buf_wr_addr / 320;
+                    if (dut.u_core.buf_wr_data != 8'hFF || write_x < 10 ||
                         write_y < 10 || write_x + write_y > 30)
                         $fatal(1, "Pixel fora do triangulo esperado");
                     triangle_writes = triangle_writes + 1;
@@ -66,14 +66,14 @@ module tb_active_fetch_integration;
         if (palette_writes != 1 || tilemap_writes != 1 || sprite_writes != 1)
             $fatal(1, "Escritas de recursos perdidas ou duplicadas");
         // O decoder expande RGB565 acrescentando zeros: F800 -> F80000.
-        if (dut.u_palette.clut_ram[255] !== 24'hF80000)
+        if (dut.u_core.u_palette.clut_ram[255] !== 24'hF80000)
             $fatal(1, "Cor RGB565 nao chegou a paleta: %06h",
-                   dut.u_palette.clut_ram[255]);
-        if (dut.u_bg_engine.u_map_buffer.map_ram[3*40+2] !== 8'd5)
+                   dut.u_core.u_palette.clut_ram[255]);
+        if (dut.u_core.u_bg_engine.u_map_buffer.map_ram[3*40+2] !== 8'd5)
             $fatal(1, "Tile nao chegou ao mapa");
-        if (dut.scroll_x != 8 || dut.scroll_y != 4)
+        if (dut.u_core.scroll_x != 8 || dut.u_core.scroll_y != 4)
             $fatal(1, "Scroll nao atualizado");
-        if (dut.u_sprite_engine.sat_ram[0] !==
+        if (dut.u_core.u_sprite_engine.sat_ram[0] !==
             {1'b1, 1'b0, 1'b0, 4'd0, 9'd152, 8'd100, 8'h01})
             $fatal(1, "Sprite nao atualizado");
 
@@ -81,7 +81,7 @@ module tb_active_fetch_integration;
         for (y = 0; y < 240; y = y + 1)
             for (x = 0; x < 320; x = x + 1) begin
                 expected_pixel = (x >= 10 && y >= 10 && x+y <= 30) ? 8'hFF : 0;
-                if (dut.u_poly_buffer.ram[y*320+x] !== expected_pixel)
+                if (dut.u_core.u_poly_buffer.ram[y*320+x] !== expected_pixel)
                     $fatal(1, "Framebuffer incorreto em (%0d,%0d)", x, y);
             end
 
@@ -90,7 +90,7 @@ module tb_active_fetch_integration;
         while (samples < 800*525*2) begin
             @(posedge clock);
             #1;
-            if (!leds[3] || dut.cmd_valid || accepted != 8)
+            if (!leds[3] || dut.u_core.cmd_valid || accepted != 8)
                 $fatal(1, "HALT nao conservou a parada do programa");
             if (!blank && {red,green,blue} != 0)
                 $fatal(1, "RGB ativo fora da area visivel");
