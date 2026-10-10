@@ -27,6 +27,7 @@ run_test() {
 
 run_test tb_instruction_memory instruction_memory.v tests/tb_instruction_memory.sv
 run_test tb_active_fetch_controller instruction_memory.v active_fetch_controller.v \
+    gpu_alu.v gpu_register_file.v gpu_instruction_decoder.v gpu_datapath.v \
     tests/tb_active_fetch_controller.sv
 run_test tb_active_fetch_integration ./*.v tests/tb_active_fetch_integration.sv
 run_test tb_board_demo ./*.v tests/tb_board_demo.sv
