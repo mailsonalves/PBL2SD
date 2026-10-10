@@ -146,7 +146,7 @@ MMIO está ligado à CPU na integração RTL. O top fornecido não instancia HPS
 
 Top principal usa busca ativa e programs/background_sprites.hex com 256 palavras. programs/polygons_motion.hex tem a mesma capacidade: a seleção muda somente PROGRAM_FILE. A ROM é carregada na elaboração/síntese; MMIO não substitui o programa durante execução.
 
-QSF inclui RTL/imagens. synth_quartus.sh --program programs/arquivo.hex --words N prepara/compila uma cópia isolada e aplica parâmetros nela. --prepare-only não requer Quartus e não gera bitstream. --board preserva botões; --active/--pbl1 selecionam os HEX históricos. A [README](../README.md) traz comandos completos.
+QSF inclui RTL/imagens. synth_quartus.sh --program programs/arquivo.hex --words N prepara/compila uma cópia isolada e aplica parâmetros nela. --prepare-only não requer Quartus e não gera bitstream. O caminho PROGRAM_FILE é escrito como literal Verilog no top da cópia; overrides de string no QSF são removidos para evitar aspas incorporadas ao nome do HEX. --board preserva botões; --active/--pbl1 selecionam os HEX históricos. A [README](../README.md) traz comandos completos.
 
 ## Desempenho, verificação e limites
 
@@ -156,6 +156,6 @@ Custos principais são limpeza de framebuffers, varredura do rasterizador e carg
 
 test_pbl2.sh valida banco/ULA/decoder/datapath, controle, MMIO, dois programas e integração; reaplica 17 testes gráficos. Icarus verifica inicialização em quatro estados. Testes Python validam montador, e HEX publicados são comparados com a montagem. Nenhum teste requer HPS real.
 
-**Validação integrada concluída em software:** 12 testes Python e 22 testbenches RTL distintos passaram; ambas as demos tiveram os comandos, o estado final e um quadro VGA após HALT verificados. Pré-síntese Cyclone V passou em busca ativa e modo histórico. O [relatório de validação](pbl2-validation.md) registra resultados e contagens preliminares. Yosys verifica hierarquia/drivers/inferência de RAM sem determinar ALMs finais, Fmax ou timing da placa. Relatórios finais precisam ser produzidos no Quartus/TimeQuest. Demonstração física, revisão PCB, restrições externas VGA e ponte HPS não foram verificados na nuvem.
+**Validação integrada concluída em software:** 14 testes Python e 22 testbenches RTL distintos passaram; ambas as demos tiveram os comandos, o estado final e um quadro VGA após HALT verificados. Pré-síntese Cyclone V passou em busca ativa e modo histórico. O [relatório de validação](pbl2-validation.md) registra resultados e contagens preliminares. Yosys verifica hierarquia/drivers/inferência de RAM sem determinar ALMs finais, Fmax ou timing da placa. Relatórios finais precisam ser produzidos no Quartus/TimeQuest. Demonstração física, revisão PCB, restrições externas VGA e ponte HPS não foram verificados na nuvem.
 
 Próximos trabalhos dependem da validação física: revisar gargalos do fitter, integrar HPS e completar software posterior. Esta etapa não implementa jogo novo, teclado/mouse, driver Linux, DMA ou carregamento de programa pela CPU ARM.

@@ -157,4 +157,3 @@ set_global_assignment -name HEX_FILE programs/background_sprites.hex
 set_global_assignment -name HEX_FILE programs/polygons_motion.hex
 set_parameter -name USE_ACTIVE_FETCH 1
 set_parameter -name PROGRAM_WORDS 256
-set_parameter -name PROGRAM_FILE {"programs/background_sprites.hex"}

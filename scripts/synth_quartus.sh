@@ -62,9 +62,25 @@ shopt -s nullglob
 sources=("$repo_dir"/*.v "$repo_dir"/*.hex "$repo_dir"/*.mif)
 cp -- "${sources[@]}" "$repo_dir/gpu.qpf" "$repo_dir/gpu.qsf" "$repo_dir/gpu.sdc" "$run_dir/"
 cp -a -- "$repo_dir/programs" "$run_dir/programs"
-# Ultimas atribuicoes substituem os parametros do projeto na copia.
-printf '\nset_parameter -name USE_ACTIVE_FETCH %d\nset_parameter -name PROGRAM_WORDS %d\nset_parameter -name PROGRAM_FILE {"%s"}\n' \
-    "$active" "$words" "$program" >> "$run_dir/gpu.qsf"
+# Caminho HEX como literal Verilog: evita aspas literais de override no QSF.
+# Altera somente a copia; gpu_core recebe o parametro do wrapper de placa.
+python3 - "$run_dir/gpu.qsf" "$run_dir/gpu_de1_soc_top.v" "$program" <<'PYTHON'
+from pathlib import Path
+import json
+import re
+import sys
+qsf, top = map(Path, sys.argv[1:3])
+text, count = re.subn(r'(?m)^(\s*parameter\s+PROGRAM_FILE\s*=\s*)"[^"\n]*"',
+                      lambda match: match[1] + json.dumps(sys.argv[3]), top.read_text())
+if count != 1:
+    sys.exit('Esperado exatamente um parametro PROGRAM_FILE no top da copia.')
+top.write_text(text)
+qsf.write_text(''.join(line for line in qsf.read_text().splitlines(keepends=True)
+                       if not re.match(r'^\s*set_parameter\s+-name\s+"?PROGRAM_FILE"?\s', line)))
+PYTHON
+# Parametros numericos continuam configurados no QSF da copia.
+printf '\nset_parameter -name USE_ACTIVE_FETCH %d\nset_parameter -name PROGRAM_WORDS %d\n' \
+    "$active" "$words" >> "$run_dir/gpu.qsf"
 printf 'Projeto isolado: %s\n' "$run_dir"
 if (( prepare_only )); then
     echo 'Copia preparada; nenhum .sof ou relatorio de timing novo foi gerado.'

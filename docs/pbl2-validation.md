@@ -29,7 +29,7 @@ em `.build/`, caminho ignorado pelo Git. A montagem na suíte escreve cópias em
 ## Resultados observados
 
 A execução completa de `scripts/test_pbl2.sh` terminou com código **0**.
-Foram executados 12 testes Python e 22 testbenches RTL distintos: cinco novos
+Foram executados 14 testes Python e 22 testbenches RTL distintos: cinco novos
 para o PBL2 e os 17 existentes do PBL1. Os testes de unidades CPU, controle CPU
 e MMIO foram executados com ambos Verilator e Icarus; o teste de inicialização
 VGA usa Icarus. Nenhum desses alvos foi omitido ou desabilitado.
@@ -37,6 +37,7 @@ VGA usa Icarus. Nenhum desses alvos foi omitido ou desabilitado.
 | Alvo | Evidência e resultado |
 |---|---|
 | Montador, 12 testes | Encodings de referência, labels, limites, instruções inválidas, pseudo-instruções, erros com linha e reprodução dos dois HEX; PASS. |
+| Preparação Quartus, 2 testes Python | Projeto padrão e cópias de todos os modos; seleção do caminho e carregamento completo das ROMs com Icarus, sem palavras indefinidas; PASS. |
 | `tb_gpu_cpu_units` | ULA com 600 vetores ADD/SUB/CMP e limites de carry/overflow; três portas de leitura do banco, r0, reset/restart, gráficos por registradores e campos reservados; PASS nos dois simuladores. |
 | `tb_gpu_cpu_control` | Programa com operações da ULA, desvios tomados/não tomados, STATUS, inválidas sem efeitos, espera de quadro, pausa, erro simultâneo a clear e drenagem no restart; PASS nos dois simuladores. |
 | `tb_gpu_mmio` | 64 offsets, desalinhamento, registros RO, byteenables, pulsos de controle, contador e reset; PASS nos dois simuladores. |
@@ -74,9 +75,16 @@ O wrapper de placa deixa MMIO desconectado; a verificação MMIO é do núcleo e
 está descrita em [hps-mmio.md](hps-mmio.md).
 
 A preparação isolada do projeto Quartus passou para os dois programas PBL2,
-para `--active` (programa histórico de nove palavras) e para `--pbl1`.
+para `--active` (programa histórico de nove palavras), `--pbl1` e `--board`.
 A cópia inclui os novos módulos, memórias, QSF e SDC. O script valida o tamanho
 do HEX antes de compilar para evitar memória de instruções parcialmente vazia.
+
+O override de string `PROGRAM_FILE` no QSF foi removido porque incorporava
+aspas ao nome do arquivo e provocava o erro de leitura do HEX no Quartus.
+O script define esse caminho como literal Verilog apenas no wrapper copiado.
+Os testes verificam os caminhos e conteúdos das ROMs com Icarus e confirmam
+que os arquivos originais permanecem intactos. Não houve compilação real
+no Quartus neste ambiente; cópias antigas devem ser regeneradas.
 
 Ainda necessários fora deste ambiente: Quartus Prime com Cyclone V, revisão de
 restrições externas VGA, fitting/recursos, Fmax/setup/hold/caminhos não

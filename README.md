@@ -136,6 +136,7 @@ bash scripts/synth_precheck.sh
 | Teste | Cobertura principal |
 |---|---|
 | `test_assembler.py` | Codificação, labels, pseudoinstruções, erros de operandos/limites. |
+| `test_quartus_setup.py` | Preparação dos projetos, seleção do HEX e carregamento das ROMs nas cópias de compilação. |
 | `tb_gpu_cpu_units` | Banco, ULA, flags, decoder e conversão gráfica. |
 | `tb_gpu_cpu_control` | Busca, PC/IR, branches, esperas, HALT, erros, pausa e reinício. |
 | `tb_gpu_mmio` | Mapa, byteenables, pulsos, RO, offsets inválidos, contador e reset. |
@@ -144,13 +145,13 @@ bash scripts/synth_precheck.sh
 | `test_step3.sh` | 32 sprites/flips/prioridades/transparência, paleta, background, memórias, rasterização, buffers e inicialização em quatro estados. |
 
 ```bash
-python3 -m unittest discover -s tests -p 'test_assembler.py' -v
+python3 -m unittest discover -s tests -p 'test_*.py' -v
 bash scripts/test_step3.sh --four-state-only
 bash scripts/synth_precheck.sh --structure-only
 bash scripts/synth_precheck.sh --board
 ```
 
-**Resultados observados:** a suíte completa terminou com código 0: **12 testes Python e 22 testbenches RTL distintos passaram** (cinco novos e 17 regressões). As duas demos foram verificadas com referências independentes de pixels e sincronismo, incluindo um quadro completo após HALT. O precheck Cyclone V passou nos modos principal/histórico, com 220/219 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
+**Resultados observados:** a suíte completa terminou com código 0: **14 testes Python e 22 testbenches RTL distintos passaram** (cinco novos e 17 regressões). As duas demos foram verificadas com referências independentes de pixels e sincronismo, incluindo um quadro completo após HALT. O precheck Cyclone V passou nos modos principal/histórico, com 220/219 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
 
 ## Compilar no Quartus e validar na placa
 
@@ -171,7 +172,7 @@ bash scripts/synth_quartus.sh --pbl1   # pbl1_validation.hex, 17 palavras
 bash scripts/synth_quartus.sh --program programs/polygons_motion.hex --prepare-only
 ```
 
-As seleções --board/--active/--pbl1/--program são exclusivas. --words define 1–256 palavras; o script exige exatamente essa quantidade de palavras HEX com oito dígitos. Imagens curtas devem ser montadas com o tamanho correspondente ou preenchidas com HALT; os presets históricos já selecionam 9/17 palavras. O script compila uma cópia isolada em `.build/quartus/run.*/`, aplicando parâmetros apenas nessa cópia. Trocar o programa exige nova síntese.
+As seleções --board/--active/--pbl1/--program são exclusivas. --words define 1–256 palavras; o script exige exatamente essa quantidade de palavras HEX com oito dígitos. Imagens curtas devem ser montadas com o tamanho correspondente ou preenchidas com HALT; os presets históricos já selecionam 9/17 palavras. O script compila uma cópia isolada em `.build/quartus/run.*/`, aplicando parâmetros apenas nessa cópia. Trocar o programa exige nova síntese. O caminho `PROGRAM_FILE` é definido no Verilog da cópia, sem override de string no QSF. Se estiver recompilando uma cópia antiga, gere outra com o script e abra o `gpu.qpf` do novo diretório.
 
 O precheck Yosys verifica estrutura e inferência preliminar de RAM; não gera .sof ou Fmax. Após Quartus, revise ALMs/RAM, clocks, setup/hold, slack, caminhos não restringidos e timing externo do DAC/VGA. Programe o .sof novo pelo Programmer, execute ambos os programas e confira o [roteiro físico](docs/validacao-fisica-pbl1.md). Recursos finais, timing, desempenho em placa e acesso HPS ainda não têm comprovação física.
 

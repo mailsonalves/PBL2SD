@@ -7,7 +7,7 @@ mkdir -p "$build_dir"
 for executable in verilator iverilog vvp python3 g++ make; do
     command -v "$executable" >/dev/null || { echo "$executable nao encontrado." >&2; exit 127; }
 done
-python3 -m unittest discover -s tests -p 'test_assembler.py' -v
+python3 -m unittest discover -s tests -p 'test_*.py' -v
 # Compara a fonte Assembly com o HEX publicado sem sobrescrever programas.
 for program in background_sprites polygons_motion; do
     python3 tools/assemble.py "programs/$program.asm" -o "$build_dir/$program.hex" --words 256
