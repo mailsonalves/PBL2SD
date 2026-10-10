@@ -64,6 +64,8 @@ endmodule
                      for name in ('gpu.qsf', 'gpu_de1_soc_top.v', 'gpu_core.v')}
         cases = [([], 'programs/background_sprites.hex', 256, 1),
                  (['--program', 'programs/polygons_motion.hex'], 'programs/polygons_motion.hex', 256, 1),
+                 (['--program', 'programs/program_a.hex'], 'programs/program_a.hex', 256, 1),
+                 (['--program', 'programs/program_b.hex'], 'programs/program_b.hex', 256, 1),
                  (['--active'], 'programs/fetch_demo.hex', 9, 1),
                  (['--pbl1'], 'programs/pbl1_validation.hex', 17, 1),
                  (['--board'], 'programs/background_sprites.hex', 256, 0)]

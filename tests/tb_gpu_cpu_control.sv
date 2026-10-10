@@ -14,6 +14,8 @@ module tb_gpu_cpu_control;
         .clk(clk), .rst_n(rst_n), .cmd_ready(cmd_ready), .execution_busy(execution_busy),
         .frame_boundary(frame_boundary), .restart(restart), .pause(pause),
         .clear_error(clear_error), .cmd_error(model_error || manual_error),
+        .load_mode(1'b0), .program_length(9'd64), .program_address(9'd0),
+        .program_write(1'b0), .program_writedata(32'd0), .program_byteenable(4'd0),
         .cmd_data(cmd_data), .cmd_valid(cmd_valid), .halted(halted),
         .busy(busy), .done(done), .error(error), .waiting_frame(waiting_frame), .flags(flags),
         .pc(pc), .ir(ir)

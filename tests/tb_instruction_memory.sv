@@ -15,6 +15,7 @@ module tb_instruction_memory;
     ) dut (
         .clk(clk),
         .address(address),
+        .write_enable(1'b0), .write_address(9'd0), .write_data(32'd0), .write_byteenable(4'd0),
         .instruction(instruction)
     );
 

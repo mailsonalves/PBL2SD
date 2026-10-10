@@ -2,7 +2,7 @@
 
 ## Modelo de execução e sintaxe
 
-Cada instrução ocupa 32 bits; o opcode é `[31:28]`. A CPU busca na ROM síncrona interna, captura IR e executa uma instrução por vez. O PC padrão tem 8 bits e endereça **palavras**, de 0 a 255. Branches são absolutos, sem delay slot. O incremento após 255 volta a zero; insira HALT ou um branch intencional. Quando PROGRAM_WORDS<256, um endereço maior ou igual a PROGRAM_WORDS retorna HALT.
+Cada instrução ocupa 32 bits; o opcode é `[31:28]`. A CPU busca na RAM síncrona interna, captura IR e executa uma instrução por vez. O PC padrão tem 8 bits e endereça **palavras**, de 0 a 255. Branches são absolutos, sem delay slot. No núcleo de placa, a sequência após PC255 conclui a última operação e executa HALT, sem voltar implicitamente a zero; um desvio explícito pode continuar. Endereços maiores ou iguais ao comprimento configurado por MMIO produzem HALT, evitando executar a cauda de um programa anterior. `PROGRAM_WORDS` define a capacidade física; o comprimento inicial é igual a essa capacidade. A instância legada do controlador com `ENABLE_PROGRAM_UPLOAD=0` conserva o incremento modular original.
 
 Há 16 registradores de 32 bits; r0 é zero permanente. Reset/restart zera registradores, PC, flags e erro, e coloca HALT em IR até a busca. Escrita em r0 é descartada, mas a operação aritmética ainda atualiza flags. Não existem load/store ou memória geral de dados; registradores alimentam gráficos diretamente.
 

@@ -2,7 +2,7 @@
 
 Projeto em Verilog para a **DE1-SoC, FPGA Cyclone V 5CSEMA5F31C6**, desenvolvido por **Lucca Coutinho, Mailson Alves e Ramon Santos**, do curso de Engenharia de Computação da Universidade Estadual de Feira de Santana (UEFS). A revisão física da placa usada na demonstração histórica não foi confirmada.
 
-O Problema 2 evolui a branch selecionada `pbl2/etapa3-conclusao-pbl1`: preserva os motores do PBL1 e acrescenta CPU de busca ativa, ISA de 32 bits, registradores, ULA, datapath, fluxo, sincronização de quadro, Assembly e interface RTL MMIO. O programa interno determina as operações; os dois programas de demonstração usam o mesmo RTL. A arquitetura executa programas gráficos genéricos. Driver Linux e aplicação de jogo pertencem a etapas posteriores.
+O Problema 2 evolui a branch selecionada `pbl2/etapa3-conclusao-pbl1`: preserva os motores do PBL1 e acrescenta CPU de busca ativa, ISA de 32 bits, registradores, ULA, datapath, fluxo, sincronização de quadro, Assembly e MMIO com carga de programas. O programa interno determina as operações; os programas de demonstração usam o mesmo RTL. A arquitetura executa programas gráficos genéricos. Um cliente C de bancada carrega instruções no núcleo; driver Linux e aplicação de jogo pertencem a etapas posteriores.
 
 **Integração física HPS-FPGA, compilação final no Quartus, timing e demonstração desta versão na placa permanecem pendentes.** Simulação e pré-síntese não substituem essas verificações.
 
@@ -17,7 +17,7 @@ O Problema 2 evolui a branch selecionada `pbl2/etapa3-conclusao-pbl1`: preserva 
 | Background e sprites | Tilemap 40×30; tiles 8×8; 32 sprites 16×16 com posição, imagem, enable, flips, prioridade e banco de paleta. |
 | Polígonos e quadros | Triângulos preenchidos, retângulos por dois triângulos, limpeza e apresentação sincronizada de buffer duplo. |
 | Vídeo contínuo | Compositor, paleta de 256 cores e VGA 640×480; cena lógica 320×240 ampliada em 2×2. |
-| MMIO básico | `gpu_mmio` ligado a `gpu_core`; controle/status testáveis em RTL. Ponte física HPS ainda precisa ser integrada. |
+| Carga de programas por MMIO | RAM de instruções, readback, limite de execução e carga com CPU pausada; `gpu_avalon`, componente Platform Designer e cliente C. Ponte física HPS ainda precisa ser integrada. |
 | Hardware e reprodução | Projeto Quartus e scripts; recursos e frequência finais dependem do fitter/TimeQuest. |
 
 ```mermaid
@@ -34,16 +34,17 @@ flowchart LR
   POL --> COMP
   COMP --> VGA[VGA contínuo]
   VGA -->|evento de quadro| UC
-  MMIO[MMIO: pause, restart, status] <--> UC
+  MMIO[MMIO: carga, pause, restart, status] <--> UC
+  MMIO -->|escrita com CPU pausada| IM
 ```
 
-`gpu_de1_soc_top` conserva os pinos da placa e instancia `gpu_core`, que integra CPU e gráficos. O wrapper desabilita o barramento MMIO externo até existir um sistema HPS/Platform Designer. A [arquitetura](docs/pbl2-architecture.md) detalha FSM, handshake, datapath e gargalos; o [guia MMIO](docs/hps-mmio.md) especifica os registradores e a integração restante.
+`gpu_de1_soc_top` conserva os pinos da placa e instancia `gpu_core`, que integra CPU e gráficos. Esse wrapper executa o HEX inicial com MMIO desabilitado. Para conectar o HPS, `gpu_avalon` e `platform/gpu_mmio_hw.tcl` expõem o mesmo núcleo como componente Platform Designer. A [arquitetura](docs/pbl2-architecture.md) detalha FSM, handshake, datapath e gargalos; o [guia MMIO](docs/hps-mmio.md) especifica os registradores, cliente C e integração restante.
 
 A composição preserva **sprite → polígono → background**. Entre sprites opacos vence a maior prioridade (0–3); no empate, o menor ID. Índice zero é transparente em sprites/polígonos. Com banco de paleta habilitado, o nibble inferior zero é transparente e o índice visível é `{banco[3:0], pixel[3:0]}`. O rasterizador aceita ambas as ordens dos vértices, usa arestas inclusivas, rejeita área zero e recorta escritas em 320×240.
 
 **O buffer duplo cobre apenas polígonos.** Tilemap, sprites e paleta são atualizados diretamente. VGA continua durante inicialização, execução, pausa, espera e HALT. Com clock de pixel de 25 MHz, 800 períodos/linha e 525 linhas/quadro, a frequência nominal é aproximadamente **59,52 Hz**.
 
-Reset reinicializa controles, CPU, sprites e buffers, mas preserva escritas na CLUT/tilemap. Restart MMIO reinicia somente a CPU e aguarda operações já aceitas. A [estratégia de inicialização](docs/pbl2-architecture.md#inicialização-de-memórias-e-reset) detalha cada memória.
+Reset reinicializa CPU, sprites e buffers, mas preserva RAM de instruções, comprimento, modo de carga e escritas na CLUT/tilemap. Manter o modo de carga evita executar um programa parcial após reset. Restart MMIO reinicia somente a CPU e aguarda operações já aceitas. A [estratégia de inicialização](docs/pbl2-architecture.md#inicialização-de-memórias-e-reset) detalha cada memória.
 
 ## ISA de 32 bits
 
@@ -103,26 +104,32 @@ O montador requer **Python 3.10+**, sem pacotes externos. Aceita inteiros decima
 cd /workspace/PBL2SD
 python3 tools/assemble.py programs/background_sprites.asm
 python3 tools/assemble.py programs/polygons_motion.asm
+python3 tools/assemble.py programs/program_a.asm
+python3 tools/assemble.py programs/program_b.asm
 # Seu programa, preenchido com HALT até 256 palavras:
 python3 tools/assemble.py programs/meu_programa.asm --words 256
 ```
 
 Cada HEX contém uma palavra de 32 bits por linha. Execute simulações a partir da raiz, pois caminhos das memórias são relativos. `tiles.hex`, `tilemap_data.hex` e `palette.hex` continuam fornecendo recursos gráficos. O fluxo carrega HEX com `$readmemh`; MIF precisa ser convertido para esse formato antes de uso.
 
-| Programa | Demonstração | Resultado após quatro iterações |
+| Programa | Demonstração | Resultado final |
 |---|---|---|
 | [background_sprites.asm](programs/background_sprites.asm) / [HEX](programs/background_sprites.hex) | Tilemap, scroll calculado pela ULA, sprites 1/2/3/31, quatro combinações de flips, prioridade e banco de paleta. | Scroll X=32; sprites 1/2 em X=104/110; 3/31 fixos. Cada iteração aguarda WAIT_FRAME. |
 | [polygons_motion.asm](programs/polygons_motion.asm) / [HEX](programs/polygons_motion.hex) | Triângulos vermelho/ciano, retângulo amarelo, sprites e deslocamento calculado em registradores; buffer duplo. | Triângulo vermelho em (56,48), (120,48), (88,100); sprite 1 em (232,96). Cada iteração usa WAIT_FRAME e PRESENT. |
+| [program_a.asm](programs/program_a.asm) / [HEX](programs/program_a.hex) | Triângulo e duas sprites; 45 instruções. | 2.461 pixels de polígono, sprites 1/2 sem espelhamento; HALT em PC44. |
+| [program_b.asm](programs/program_b.asm) / [HEX](programs/program_b.hex) | Retângulo e duas sprites em outras posições, com espelhamento H/V; 48 instruções. | 3.969 pixels de polígono; HALT em PC47. |
 
-Ambos terminam em HALT e mantêm a última imagem. As quatro iterações demonstram sincronização por um intervalo curto; altere o Assembly para alongar/repetir o movimento. RECT exige área positiva (`x0<x1`, `y0<y1`) com cantos inclusivos. RECTR com largura/altura zero produz primitivas degeneradas sem pixels.
+Todos terminam em HALT e mantêm a última imagem. As duas demonstrações de movimento usam quatro iterações; A/B são cenas estáticas que inicializam seu estado e desabilitam sprites anteriores. RECT exige área positiva (`x0<x1`, `y0<y1`) com cantos inclusivos. RECTR com largura/altura zero produz primitivas degeneradas sem pixels.
 
-O top usa **`USE_ACTIVE_FETCH=1`, `PROGRAM_WORDS=256` e `PROGRAM_FILE="programs/background_sprites.hex"`** por padrão. Ambos os HEX têm 256 palavras: basta trocar PROGRAM_FILE na configuração da instância/compilação. A seleção ocorre antes da síntese; não há seleção por chaves ou carregamento de programa via MMIO.
+O top usa **`USE_ACTIVE_FETCH=1`, `PROGRAM_WORDS=256` e `PROGRAM_FILE="programs/background_sprites.hex"`** por padrão. Os quatro HEX têm 256 palavras. `PROGRAM_FILE` seleciona apenas o programa inicial da configuração FPGA; depois da integração HPS, MMIO substitui as instruções sem alterar ou recompilar Verilog. A troca A→B no mesmo núcleo é verificada por `tb_pbl2_upload`. Botões/chaves não selecionam operações no modo principal.
+
+A [investigação da renderização](docs/pbl2-render-review.md) explica a fotografia, a CLUT compartilhada e os testes adicionais. O HEX padrão não desenha polígonos; use A/B ou `polygons_motion.hex` para essa verificação.
 
 KEY[0] permanece reset; os demais botões não controlam a execução no modo principal. O modo histórico pode ser compilado com USE_ACTIVE_FETCH=0. LEDR[3] indica HALT, [4] erro persistente, [5] buffers inicializados, [6] buffer frontal, [7] buffer duplo e [8] sprite busy.
 
 ## Testes reproduzíveis
 
-Ferramentas: Verilator 5, Icarus Verilog, Python 3.10+, compilador C++ e Make. Yosys é necessário para pré-síntese. No ambiente preparado:
+Ferramentas: Verilator 5, Icarus Verilog, Python 3.10+, compiladores C/C++ e Make. Yosys é necessário para pré-síntese. No ambiente preparado:
 
 ```bash
 source /workspace/.pbl-tools/activate.sh
@@ -137,11 +144,16 @@ bash scripts/synth_precheck.sh
 |---|---|
 | `test_assembler.py` | Codificação, labels, pseudoinstruções, erros de operandos/limites. |
 | `test_quartus_setup.py` | Preparação dos projetos, seleção do HEX e carregamento das ROMs nas cópias de compilação. |
+| `test_hps_client.py` | Compilação C com warnings tratados como erro, validação dos HEX e rejeição de base ausente/inválida. |
 | `tb_gpu_cpu_units` | Banco, ULA, flags, decoder e conversão gráfica. |
 | `tb_gpu_cpu_control` | Busca, PC/IR, branches, esperas, HALT, erros, pausa e reinício. |
 | `tb_gpu_mmio` | Mapa, byteenables, pulsos, RO, offsets inválidos, contador e reset. |
 | `tb_pbl2_programs` | Mesma integração com dois programas, comandos/pixels, quadros e VGA após HALT. |
 | `tb_pbl2_control` | Ligação MMIO–CPU, pausa/restart/erro/status e preservação gráfica/VGA. |
+| `tb_instruction_memory_upload`, `tb_gpu_cpu_upload`, `tb_gpu_mmio_upload` | RAM gravável, byteenables, carga protegida, readback, comprimento, reset e fim de PC. |
+| `tb_gpu_avalon_reset` | Leitura/escrita pendentes durante liberação de reset e KEY, aceitas exatamente uma vez. |
+| `tb_pbl2_upload` | A→B por MMIO em uma GPU, readback, quadros VGA independentes e persistência após reset. |
+| `tb_polygon_random` | 100 triângulos e 4.352 vetores da ULA: winding, recorte, extremos, degenerados e captura durante busy. |
 | `test_step3.sh` | 32 sprites/flips/prioridades/transparência, paleta, background, memórias, rasterização, buffers e inicialização em quatro estados. |
 
 ```bash
@@ -149,9 +161,10 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 bash scripts/test_step3.sh --four-state-only
 bash scripts/synth_precheck.sh --structure-only
 bash scripts/synth_precheck.sh --board
+bash scripts/synth_precheck.sh --mmio
 ```
 
-**Resultados observados:** a suíte completa terminou com código 0: **14 testes Python e 22 testbenches RTL distintos passaram** (cinco novos e 17 regressões). As duas demos foram verificadas com referências independentes de pixels e sincronismo, incluindo um quadro completo após HALT. O precheck Cyclone V passou nos modos principal/histórico, com 220/219 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
+**Resultados observados:** a suíte completa terminou com código 0: **17 testes Python e 28 testbenches RTL distintos passaram** (11 do PBL2 e 17 regressões). As demos e a troca A→B foram verificadas com referências independentes de pixels e sincronismo, incluindo quadros completos após HALT. O precheck Cyclone V passou nos modos principal/histórico/Avalon, com 220/219/235 M10K no modelo Yosys; esses números não são recursos finais do fitter. Consulte o [relatório de validação](docs/pbl2-validation.md) para evidências, ferramentas e limites. Relatórios/bitstreams históricos não validam esta versão.
 
 ## Compilar no Quartus e validar na placa
 

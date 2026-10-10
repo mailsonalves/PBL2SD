@@ -86,21 +86,30 @@ module gpu_core #(
     wire [31:0] program_ir;
     wire cpu_restart, cpu_pause, cpu_clear_error;
     wire [31:0] mmio_status;
+    wire load_mode, program_write, program_ready;
+    wire [8:0] program_address, program_length;
+    wire [31:0] program_writedata, program_readdata;
+    wire [3:0] program_byteenable;
 
-    gpu_mmio u_mmio (
+    gpu_mmio #(.PROGRAM_WORDS(PROGRAM_WORDS),
+               .ENABLE_PROGRAM_UPLOAD(USE_ACTIVE_FETCH)) u_mmio (
         .clk(CLOCK_50), .rst_n(rst_n), .address(mmio_address),
         .read(mmio_read), .write(mmio_write), .writedata(mmio_writedata),
         .byteenable(mmio_byteenable), .readdata(mmio_readdata),
         .waitrequest(mmio_waitrequest), .status(mmio_status),
         .pc({24'd0, program_pc}), .ir(program_ir), .frame_boundary(frame_boundary),
-        .restart(cpu_restart), .pause(cpu_pause), .clear_error(cpu_clear_error)
+        .restart(cpu_restart), .pause(cpu_pause), .clear_error(cpu_clear_error),
+        .load_mode(load_mode), .program_length(program_length),
+        .program_address(program_address), .program_write(program_write),
+        .program_writedata(program_writedata), .program_byteenable(program_byteenable),
+        .program_readdata(program_readdata), .program_ready(program_ready)
     );
 
     generate
         if (USE_ACTIVE_FETCH) begin : gen_active_fetch
             active_fetch_controller #(
                 .PROGRAM_WORDS(PROGRAM_WORDS),
-                .PROGRAM_FILE(PROGRAM_FILE)
+                .PROGRAM_FILE(PROGRAM_FILE), .ENABLE_PROGRAM_UPLOAD(1)
             ) u_fetch (
                 .clk(CLOCK_50),
                 .rst_n(rst_n),
@@ -113,7 +122,11 @@ module gpu_core #(
                 .frame_boundary(frame_boundary), .restart(cpu_restart),
                 .pause(cpu_pause), .clear_error(cpu_clear_error), .cmd_error(cmd_error),
                 .busy(program_busy), .done(program_done), .error(program_error),
-                .waiting_frame(waiting_frame), .flags(program_flags)
+                .waiting_frame(waiting_frame), .flags(program_flags),
+                .load_mode(load_mode), .program_length(program_length),
+                .program_address(program_address), .program_write(program_write),
+                .program_writedata(program_writedata), .program_byteenable(program_byteenable),
+                .program_readdata(program_readdata), .program_ready(program_ready)
             );
         end else begin : gen_board_demo
             assign program_halted = 1'b0;
@@ -124,6 +137,8 @@ module gpu_core #(
             assign program_flags = 4'd0;
             assign program_pc = 8'd0;
             assign program_ir = 32'd0;
+            assign program_ready = 1'b0;
+            assign program_readdata = 32'hF0000000;
             board_input_controller u_input_ctrl (
                 .clk(CLOCK_50),
                 .rst_n(rst_n),

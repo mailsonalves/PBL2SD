@@ -4,20 +4,26 @@
 set -euo pipefail
 
 usage() {
-    echo "Uso: bash scripts/synth_precheck.sh [--board | --active] [--structure-only]"
+    echo "Uso: bash scripts/synth_precheck.sh [--board | --active | --mmio] [--structure-only]"
     echo "Padrao: estrutura, RAM e mapeamento preliminar Cyclone V."
 }
 active=1
 structure_only=0
+top=gpu_de1_soc_top
 for argument in "$@"; do
     case "$argument" in
         --active) active=1 ;;
         --board) active=0 ;;
+        --mmio) top=gpu_avalon; active=1 ;;
         --structure-only) structure_only=1 ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
+if [[ "$top" == gpu_avalon && "$active" == 0 ]]; then
+    echo '--mmio requer busca ativa.' >&2
+    exit 2
+fi
 for executable in yosys python3; do
     if ! command -v "$executable" >/dev/null 2>&1; then
         echo "$executable nao encontrado. Ative/instale as ferramentas antes do precheck." >&2
@@ -29,7 +35,7 @@ repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
 mkdir -p .build/synth
 run_dir=$(mktemp -d .build/synth/run.XXXXXX)
-echo "Precheck preliminar: $run_dir (USE_ACTIVE_FETCH=$active)"
+echo "Precheck preliminar: $run_dir (top=$top, USE_ACTIVE_FETCH=$active)"
 yosys -V > "$run_dir/version.txt"
 
 run_yosys() {
@@ -44,7 +50,7 @@ run_yosys() {
 cat > "$run_dir/structure.ys" <<YOSYS
 read_verilog -sv *.v
 chparam -set USE_ACTIVE_FETCH $active gpu_de1_soc_top
-hierarchy -check -top gpu_de1_soc_top
+hierarchy -check -top $top
 proc
 opt
 memory_dff
@@ -70,7 +76,7 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1]))
-top = data['modules']['gpu_de1_soc_top']
+top = data['modules'][sys.argv[3]]
 counts = collections.Counter(c['type'] for c in top.get('cells', {}).values())
 remaining = []
 for name, cell in top.get('cells', {}).items():
@@ -94,23 +100,23 @@ PYTHON
 
 cat > "$run_dir/mapped.ys" <<YOSYS
 read_rtlil $run_dir/structure.il
-synth_intel_alm -top gpu_de1_soc_top -family cyclonev -run begin:map_lutram
+synth_intel_alm -top $top -family cyclonev -run begin:map_lutram
 stat
 write_json $run_dir/ram.json
-exec -expect-return 0 -- python3 $run_dir/check_ram.py $run_dir/ram.json $run_dir/ram-summary.txt
-synth_intel_alm -top gpu_de1_soc_top -family cyclonev -run map_ffram:check
+exec -expect-return 0 -- python3 $run_dir/check_ram.py $run_dir/ram.json $run_dir/ram-summary.txt $top
+synth_intel_alm -top $top -family cyclonev -run map_ffram:check
 check -assert
 stat
 write_json $run_dir/mapped.json
 YOSYS
 run_yosys mapped
 cat "$run_dir/ram-summary.txt"
-python3 - "$run_dir/mapped.json" "$run_dir/mapped-summary.txt" <<'PYTHON'
+python3 - "$run_dir/mapped.json" "$run_dir/mapped-summary.txt" "$top" <<'PYTHON'
 import collections
 import json
 import sys
 
-cells = json.load(open(sys.argv[1]))['modules']['gpu_de1_soc_top']['cells']
+cells = json.load(open(sys.argv[1]))['modules'][sys.argv[3]]['cells']
 counts = collections.Counter(c['type'] for c in cells.values())
 blocks = collections.Counter(name.removeprefix('u_core.').split('.')[0] for name, cell in cells.items()
                              if cell['type'] == 'MISTRAL_M10K')

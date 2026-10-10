@@ -28,6 +28,8 @@ module tb_active_fetch_controller;
         .execution_busy(execution_busy),
         .frame_boundary(1'b0), .restart(1'b0), .pause(1'b0),
         .clear_error(1'b0), .cmd_error(1'b0),
+        .load_mode(1'b0), .program_length(9'(COMMAND_COUNT + 1)), .program_address(9'd0),
+        .program_write(1'b0), .program_writedata(32'd0), .program_byteenable(4'd0),
         .cmd_data(cmd_data),
         .cmd_valid(cmd_valid),
         .halted(halted),

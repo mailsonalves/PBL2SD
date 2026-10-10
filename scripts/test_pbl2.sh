@@ -4,12 +4,12 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 build_dir="${PBL_BUILD_DIR:-$repo_dir/.build/pbl2}"
 mkdir -p "$build_dir"
-for executable in verilator iverilog vvp python3 g++ make; do
+for executable in verilator iverilog vvp python3 cc g++ make; do
     command -v "$executable" >/dev/null || { echo "$executable nao encontrado." >&2; exit 127; }
 done
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 # Compara a fonte Assembly com o HEX publicado sem sobrescrever programas.
-for program in background_sprites polygons_motion; do
+for program in background_sprites polygons_motion program_a program_b; do
     python3 tools/assemble.py "programs/$program.asm" -o "$build_dir/$program.hex" --words 256
     cmp "programs/$program.hex" "$build_dir/$program.hex"
 done
@@ -28,8 +28,12 @@ run_test() {
 run_test tb_gpu_cpu_units
 run_test tb_gpu_cpu_control
 run_test tb_gpu_mmio
+run_test tb_instruction_memory_upload
+run_test tb_gpu_cpu_upload
+run_test tb_gpu_mmio_upload
+run_test tb_gpu_avalon_reset
 # Quatro estados tambem exercitam o datapath/controle novo, alem do boot VGA.
-for test_name in tb_gpu_cpu_units tb_gpu_cpu_control tb_gpu_mmio; do
+for test_name in tb_gpu_cpu_units tb_gpu_cpu_control tb_gpu_mmio tb_instruction_memory_upload tb_gpu_cpu_upload tb_gpu_mmio_upload tb_gpu_avalon_reset; do
     iverilog -g2012 -s "$test_name" -o "$build_dir/$test_name.vvp" \
         ./*.v "tests/$test_name.sv" > "$build_dir/$test_name-icarus-build.log" 2>&1 || {
             result=$?
@@ -40,5 +44,7 @@ for test_name in tb_gpu_cpu_units tb_gpu_cpu_control tb_gpu_mmio; do
 done
 run_test tb_pbl2_programs
 run_test tb_pbl2_control
+run_test tb_pbl2_upload
+run_test tb_polygon_random
 # Regressoes graficas completas e inicializacao em quatro estados.
 bash "$repo_dir/scripts/test_step3.sh"

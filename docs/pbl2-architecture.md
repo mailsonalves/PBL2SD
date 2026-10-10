@@ -7,14 +7,15 @@ O desenvolvimento parte da branch `pbl2/etapa3-conclusao-pbl1`. Motores gráfico
 | Módulo | Responsabilidade |
 |---|---|
 | gpu_de1_soc_top | Wrapper com pinos CLOCK_50/KEY/SW/LEDR/VGA e MMIO inativo; parâmetros selecionam programa/modo. |
+| gpu_avalon | Wrapper do mesmo núcleo com clock/reset e slave Avalon-MM para Platform Designer. |
 | gpu_core | Integra CPU, MMIO, gráficos, eventos de quadro e vídeo. |
-| instruction_memory | ROM síncrona de 32 bits, carregada com $readmemh de PROGRAM_FILE. |
+| instruction_memory | RAM síncrona de 32 bits, inicializada pelo HEX e gravável por MMIO com a CPU pausada. |
 | active_fetch_controller | PC/IR, FSM, handshake, branches, WAIT_FRAME, pause/restart e estado de execução. |
 | gpu_instruction_decoder | Identificação de ULA/gráficos/fluxo/HALT e validação dos reservados novos. |
 | gpu_register_file | 16×32 bits, três leituras combinacionais e uma escrita síncrona; r0=0. |
 | gpu_alu | Aritmética/lógica inteira, shifts, comparação e flags {V,C,N,Z}. |
 | gpu_datapath | Operand mux, writeback e flags; conversão dos comandos por registrador. |
-| gpu_mmio | CONTROL, STATUS, PC, IR, FRAME_COUNT e ID no domínio CLOCK_50. |
+| gpu_mmio | Controle, estado e carga/readback de instruções no domínio CLOCK_50. |
 | cmd_decoder | Validação/aceitação de comandos e pulsos/campos das unidades gráficas. |
 | bg_engine / tilemap_ram / pattern_vram | Background 40×30, padrões 8×8 e scroll circular. |
 | sprite_engine | 32 sprites 16×16, caches, carga sequencial, flips, prioridades/transparência. |
@@ -52,8 +53,8 @@ Reset/restart zera banco/flags. Gráficos e fluxo preservam flags. Regras de car
 
 | Estado | Operação e condição de saída |
 |---|---|
-| FETCH | Apresenta PC à ROM síncrona; avança para LATCH. |
-| LATCH | Captura leitura anterior em IR; avança para ISSUE. |
+| FETCH | Apresenta PC à RAM síncrona; avança para LATCH. |
+| LATCH | Captura leitura anterior em IR, ou HALT quando PC excede comprimento; avança para ISSUE. |
 | ISSUE | Aguarda pause=0; executa ULA/fluxo/HALT/erro ou mantém gráfico válido até ready. |
 | SETTLE | Permite propagação dos pulsos registrados para motores gráficos. |
 | WAIT_DONE | Espera cmd_ready=1 e execution_busy=0; conclui, incrementa PC e retorna a FETCH. |
@@ -61,6 +62,7 @@ Reset/restart zera banco/flags. Gráficos e fluxo preservam flags. Regras de car
 | HALTED | CPU parada até reset/restart. |
 | RESTART_SETTLE | Após restart, permite propagar pulsos gráficos já aceitos. |
 | RESTART_DRAIN | Aguarda gráficos disponíveis/ociosos antes de buscar em PC=0. |
+| FALLTHROUGH_HALT | Após aposentar PC255 sem desvio tomado, injeta HALT e retorna a ISSUE, evitando wrap. |
 
 ULA/fluxo simples conclui em ISSUE. PC recebe PC+1 ou o endereço absoluto de branch. HALT conclui sem incrementar PC. Inválida da ISA nova conclui com erro sem escrever banco/flags/gráficos. Comando gráfico inválido passa pelo decoder gráfico, que gera cmd_error; a CPU captura erro e conclui pela sequência gráfica normal.
 
@@ -79,6 +81,10 @@ stateDiagram-v2
   WAIT_DONE --> FETCH: ready e sem busy
   WAIT_FRAME --> WAIT_FRAME: sem evento
   WAIT_FRAME --> FETCH: evento posterior
+  ISSUE --> FALLTHROUGH_HALT: sequência em PC255 sem desvio
+  WAIT_DONE --> FALLTHROUGH_HALT: fim em PC255
+  WAIT_FRAME --> FALLTHROUGH_HALT: fim em PC255
+  FALLTHROUGH_HALT --> ISSUE: injeta HALT
   HALTED --> HALTED
   RESTART_SETTLE --> RESTART_DRAIN
   RESTART_DRAIN --> RESTART_DRAIN: gráficos pendentes
@@ -104,6 +110,10 @@ Pause impede efeitos e aceitação em ISSUE. Uma instrução pode terminar a bus
 
 Restart reinicia PC/IR/banco/flags/erro sem resetar VGA, paleta, tilemap, sprites ou buffers. Uma operação aceita termina antes de novas instruções. O programa reiniciado deve configurar/limpar o estado gráfico necessário: restart não restaura a cena inicial. FRAME_COUNT permanece, pois pertence ao MMIO. Reset pela placa reinicializa CPU, controles, sprites, buffers e temporização; CLUT e tilemap preservam escritas anteriores, como no PBL1.
 
+### Carga de outro programa
+
+CONTROL bit3 entra em modo de carga e força pausa; a transição reinicia/drena a CPU para cancelar WAIT_FRAME e terminar gráficos aceitos. `program_ready` só sobe com CPU em ISSUE/HALTED, pausada, decoder pronto e motores ociosos. Apenas então DATA pode escrever a RAM. Durante carga, a porta de leitura única usa PROG_ADDR em lugar de PC; o MMIO espera dois ciclos após mudança de endereço antes de concluir readback. Escritas usam o endereço anterior ao autoincremento, com byteenables. PROG_LENGTH limita a execução e permanece válido após reset. Sair do modo de carga reinicia a CPU, descartando qualquer IR capturado antes da carga. A operação não altera ISA, geometria, VGA ou recursos gráficos.
+
 ## Gráficos, quadros e VGA contínuo
 
 VGA usa CLOCK_50=50 MHz e pixel clock nominal 25 MHz, independentemente da FSM. São 800 períodos/linha×525 linhas/quadro, aproximadamente 59,52 Hz. Cada pixel lógico 320×240 ocupa 2×2 na saída 640×480. Coordenadas, sincronismo, validade e pixel são alinhados pelo pipeline existente.
@@ -123,7 +133,8 @@ Rasterização usa funções de aresta inteiras, aceita orientações opostas, i
 | Estado/memória | Estratégia |
 |---|---|
 | PC, IR, banco de registradores, flags, status e controle | Reset; restart MMIO afeta somente o estado da CPU. |
-| ROM de instruções e ROMs de padrões | HEX carregado na elaboração/configuração; nenhuma escrita por MMIO. Os programas novos preenchem todas as 256 palavras com instruções ou HALT. |
+| RAM de instruções, comprimento e modo de carga | HEX/comprimento inicial/modo0 carregados na configuração FPGA; MMIO escreve instruções e comprimento. Reset/restart preservam esses três estados; reset durante carga mantém CPU pausada. |
+| ROMs de padrões | HEX carregado na configuração FPGA; sem escrita por MMIO. |
 | Tilemap e CLUT | Inicialização por HEX; escritas feitas pelo programa permanecem após reset comum ou restart da CPU. Reprogramar a FPGA restaura os arquivos iniciais. |
 | SAT e estilo dos sprites | Reset de atributos; sprite 0 conserva o padrão histórico, que os dois programas novos desabilitam pela ISA. |
 | Caches de sprites | RAM sem reset por célula; cache_valid oculta conteúdo até a carga de 256 pixels terminar. |
@@ -136,15 +147,15 @@ necessário. Reinício da CPU preserva tanto o vídeo quanto as alterações gr�
 
 ## MMIO e status
 
-gpu_core expõe endereço de byte de 6 bits, read/write, dados de 32 bits, byteenable e waitrequest. Leituras são combinacionais e waitrequest é zero. gpu_mmio fornece pause/restart/clear_error e estado, PC, IR, contador de quadros e identificação PBL2.
+gpu_core expõe endereço de byte de 6 bits, read/write, dados de 32 bits, byteenable e waitrequest. O barramento espera enquanto o reset interno está ativo, inclusive os dois clocks de liberação, evitando confirmar uma transação que seria descartada. Registradores usuais têm leitura combinacional; DATA pode afirmar waitrequest enquanto a leitura síncrona da RAM estabiliza. gpu_mmio fornece pause/restart/clear_error, estado, PC/IR, contador, identificação e os registros PROG_ADDR/DATA/LENGTH/LOAD_STATUS.
 
 STATUS MMIO: ready[0], busy[1], halted[2], erro[3], buffers inicializados[4], buffer frontal[5], buffer duplo[6], sprite busy[7], waiting_frame[8], pulso done[9], flags Z/N/C/V[13:10]; [31:14]=0. A instrução STATUS da ISA lê somente flags/erro.
 
-MMIO está ligado à CPU na integração RTL. O top fornecido não instancia HPS/ponte e mantém o barramento inativo. Será necessário gerar/conectar Platform Designer, atribuir mapa de endereços e tratar clock/reset/CDC. Não há endereço físico de software definido nem driver Linux. Consulte [hps-mmio.md](hps-mmio.md) para o contrato e a integração restante.
+MMIO está ligado à CPU na integração RTL. O top FPGA mantém o barramento inativo; gpu_avalon expõe o núcleo para o componente em platform/gpu_mmio_hw.tcl. O cliente software/gpu_load.c carrega, confere readback, inicia e consulta HALT. Será necessário gerar/conectar um sistema HPS válido, obter seu mapa físico e tratar clock/reset/CDC antes de executar esse cliente na placa. Não há endereço físico escolhido por suposição nem driver Linux. Consulte [hps-mmio.md](hps-mmio.md) para o procedimento.
 
 ## Programa, Quartus e modo histórico
 
-Top principal usa busca ativa e programs/background_sprites.hex com 256 palavras. programs/polygons_motion.hex tem a mesma capacidade: a seleção muda somente PROGRAM_FILE. A ROM é carregada na elaboração/síntese; MMIO não substitui o programa durante execução.
+Top principal usa busca ativa e programs/background_sprites.hex com 256 palavras iniciais. Os outros HEX podem ser selecionados para inicialização por PROGRAM_FILE ou carregados por MMIO após a integração HPS. programs/program_a.hex e program_b.hex demonstram polígono e duas sprites com o mesmo núcleo; o segundo aplica flips. A troca em execução altera apenas RAM/comprimento, sem nova síntese.
 
 QSF inclui RTL/imagens. synth_quartus.sh --program programs/arquivo.hex --words N prepara/compila uma cópia isolada e aplica parâmetros nela. --prepare-only não requer Quartus e não gera bitstream. O caminho PROGRAM_FILE é escrito como literal Verilog no top da cópia; overrides de string no QSF são removidos para evitar aspas incorporadas ao nome do HEX. --board preserva botões; --active/--pbl1 selecionam os HEX históricos. A [README](../README.md) traz comandos completos.
 
@@ -156,6 +167,6 @@ Custos principais são limpeza de framebuffers, varredura do rasterizador e carg
 
 test_pbl2.sh valida banco/ULA/decoder/datapath, controle, MMIO, dois programas e integração; reaplica 17 testes gráficos. Icarus verifica inicialização em quatro estados. Testes Python validam montador, e HEX publicados são comparados com a montagem. Nenhum teste requer HPS real.
 
-**Validação integrada concluída em software:** 14 testes Python e 22 testbenches RTL distintos passaram; ambas as demos tiveram os comandos, o estado final e um quadro VGA após HALT verificados. Pré-síntese Cyclone V passou em busca ativa e modo histórico. O [relatório de validação](pbl2-validation.md) registra resultados e contagens preliminares. Yosys verifica hierarquia/drivers/inferência de RAM sem determinar ALMs finais, Fmax ou timing da placa. Relatórios finais precisam ser produzidos no Quartus/TimeQuest. Demonstração física, revisão PCB, restrições externas VGA e ponte HPS não foram verificados na nuvem.
+**Validação integrada concluída em software:** 17 testes Python e 28 testbenches RTL distintos passaram; as demos e a troca A→B na mesma GPU tiveram comandos, estado final e quadros VGA após HALT verificados. Pré-síntese Cyclone V passou em busca ativa, modo histórico e wrapper Avalon com carga. O [relatório de validação](pbl2-validation.md) registra resultados e contagens preliminares. Yosys verifica hierarquia/drivers/inferência de RAM sem determinar ALMs finais, Fmax ou timing da placa. Relatórios finais precisam ser produzidos no Quartus/TimeQuest. Demonstração física, revisão PCB, restrições externas VGA e ponte HPS não foram verificados na nuvem.
 
-Próximos trabalhos dependem da validação física: revisar gargalos do fitter, integrar HPS e completar software posterior. Esta etapa não implementa jogo novo, teclado/mouse, driver Linux, DMA ou carregamento de programa pela CPU ARM.
+Próximos trabalhos dependem da validação física: revisar gargalos do fitter, integrar HPS e completar software posterior. A carga pelo barramento é testada em RTL e o cliente C é compilado; a ponte real e sua execução no Linux ARM ainda precisam ser verificadas. Não há jogo novo, teclado/mouse, driver Linux ou DMA nesta etapa.

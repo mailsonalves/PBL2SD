@@ -15,16 +15,19 @@ module tb_gpu_mmio;
     wire [31:0] readdata;
     wire waitrequest, restart, pause, clear_error;
 
-    gpu_mmio dut (
+    // O contrato historico continua disponivel sem portas de upload ativas.
+    gpu_mmio #(.ENABLE_PROGRAM_UPLOAD(0)) dut (
         .clk(clk), .rst_n(rst_n), .address(address), .read(read), .write(write),
         .writedata(writedata), .byteenable(byteenable), .status(status),
         .pc(pc), .ir(ir), .frame_boundary(frame_boundary), .readdata(readdata),
         .waitrequest(waitrequest), .restart(restart), .pause(pause),
-        .clear_error(clear_error)
+        .clear_error(clear_error), .program_ready(1'b0), .program_readdata(32'd0),
+        .load_mode(), .program_length(), .program_address(), .program_write(),
+        .program_writedata(), .program_byteenable()
     );
 
     task automatic expect_outputs(input bit p, r, e);
-        if (pause !== p || restart !== r || clear_error !== e || waitrequest !== 0)
+        if (pause !== p || restart !== r || clear_error !== e || waitrequest !== !rst_n)
             $fatal(1, "MMIO controle: pause/restart/clear=%b%b%b esperado=%b%b%b wait=%b",
                    pause, restart, clear_error, p, r, e, waitrequest);
     endtask
@@ -34,11 +37,11 @@ module tb_gpu_mmio;
             // Sem borda de clock: confere o contrato de leitura combinacional.
             address = offset; read = 1;
             #1;
-            if (readdata !== expected || waitrequest !== 0)
+            if (readdata !== expected || waitrequest !== !rst_n)
                 $fatal(1, "MMIO leitura byte %02h: %08h esperado %08h", offset, readdata, expected);
             read = 0;
             #1;
-            if (readdata !== 0)
+            if (readdata !== 0 || waitrequest !== !rst_n)
                 $fatal(1, "MMIO readdata deve ser zero quando read=0");
         end
     endtask
@@ -104,7 +107,7 @@ module tb_gpu_mmio;
         // Cada combinacao dos tres controles e das quatro byteenables.
         for (mask = 0; mask < 16; mask++) begin
             for (control = 0; control < 8; control++) begin
-                write_register(0, 32'hFFFFFFF8 | control, mask[3:0],
+                write_register(0, 32'hFFFFFFF0 | control, mask[3:0],
                                mask[0] ? control[0] : 1'b0,
                                mask[0] ? control[1] : 1'b0,
                                mask[0] ? control[2] : 1'b0);
